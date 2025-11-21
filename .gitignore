@@ -104,10 +104,10 @@ Desktop.ini
 # ---------------------------------------
 */target/
 */bin/
-Pokemun/build.xml
-Pokemun/manifest.mf
+
 Pokemun/nbproject/build-impl.xml
 Pokemun/nbproject/genfiles.properties
 Pokemun/nbproject/private/private.properties
 Pokemun/nbproject/project.properties
 Pokemun/nbproject/project.xml
+Pokemun/nbproject/private/private.xml
