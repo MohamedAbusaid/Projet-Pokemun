@@ -23,7 +23,7 @@ public class Carte {
 
     public Carte() {
         try {
-            this.decor = ImageIO.read(getClass().getResource("../resources/campus.png"));
+            this.decor = ImageIO.read(getClass().getResource("../resources/Foret_de_Rambouillet.png"));
         } catch (IOException ex) {
             Logger.getLogger(Carte.class.getName()).log(Level.SEVERE, null, ex);
         }

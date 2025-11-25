@@ -1,177 +1,175 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package pokemon;
 
 import java.awt.Color;
 import java.awt.Graphics2D;
+import java.awt.image.BufferedImage;
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import javax.imageio.ImageIO;
 import outils.SingletonJDBC;
 
 /**
- * Exemple de classe avatar
- *
- * @author guillaume.laurent
+ * Avatar : gère l'affichage et le déplacement du joueur local.
+ * @author Equipe DuBrazil
  */
 public class Avatar {
 
+    // Contrôles
     private boolean toucheHaut, toucheBas, toucheDroite, toucheGauche;
-    private String pseudo;
-    protected Carte laCarte;
     
-    private String messageCapture = "";
+    // Infos joueur
+    private String pseudo;
+    private String role; // "CHASSEUR" ou "INSECTE"
+    
+    // Graphismes
+    protected Carte laCarte;
+    private BufferedImage spriteChasseur;
+    private BufferedImage spriteInsecte;
+    
+    // Paramètres de jeu
+    private final double VITESSE = 0.0001; // Vitesse de déplacement (en degrés GPS)
 
-    public Avatar(Carte laCarte) {
+    // --- LE CONSTRUCTEUR A ETE MODIFIE ICI ---
+    public Avatar(Carte laCarte, String pseudoJoueur) {
         this.laCarte = laCarte;
-        this.toucheHaut = false;
-        this.toucheBas = false;
-        this.toucheDroite = false;
-        this.toucheGauche = false;
-        this.pseudo = "sacha";
+        this.pseudo = pseudoJoueur; // On stocke le pseudo reçu de la classe Jeu
+        
+        // Chargement des images (Sprites)
+        try {
+            // Assurez-vous d'avoir ces images dans src/resources/ (sinon ça mettra des ronds de couleur)
+            // Vous pouvez mettre des images bidons pour tester si vous ne les avez pas encore
+            try { this.spriteChasseur = ImageIO.read(getClass().getResource("/resources/chasseur.png")); } catch(Exception e){}
+            try { this.spriteInsecte = ImageIO.read(getClass().getResource("/resources/insecte.png")); } catch(Exception e){}
+        } catch (Exception ex) {
+            System.err.println("Erreur images : " + ex.getMessage());
+        }
 
+        // Récupération du rôle depuis la BDD au démarrage
+        recupererRole();
     }
 
-    public void miseAJour() {
-
-        if (this.toucheHaut) {
-            System.out.println("Déplacement de " + this.pseudo + " vers le haut");
-            try {
-                Connection connexion = SingletonJDBC.getInstance().getConnection();
-                PreparedStatement requete = connexion.prepareStatement(
-                        "UPDATE dresseurs SET latitude = latitude + 0.0001 WHERE pseudo = ?");
-                requete.setString(1, this.pseudo);
-                requete.executeUpdate();
-                requete.close();
-            }
-            catch (SQLException ex) {
-                ex.printStackTrace();
-            }
-        }
-        if (this.toucheBas) {
-            System.out.println("Déplacement de " + this.pseudo + " vers le bas");
-            try {
-                Connection connexion = SingletonJDBC.getInstance().getConnection();
-                PreparedStatement requete = connexion.prepareStatement(
-                        "UPDATE dresseurs SET latitude = latitude - 0.0001 WHERE pseudo = ?");
-                requete.setString(1, this.pseudo);
-                requete.executeUpdate();
-                requete.close();
-            }
-            catch (SQLException ex) {
-                ex.printStackTrace();
-            }
-        }
-        if (this.toucheDroite) {
-            System.out.println("Déplacement de " + this.pseudo + " vers la droite");
-            try {
-                Connection connexion = SingletonJDBC.getInstance().getConnection();
-                PreparedStatement requete = connexion.prepareStatement(
-                        "UPDATE dresseurs SET longitude = longitude + 0.0001 WHERE pseudo = ?");
-                requete.setString(1, this.pseudo);
-                requete.executeUpdate();
-                requete.close();
-            }
-            catch (SQLException ex) {
-                ex.printStackTrace();
-            }
-        }
-        if (this.toucheGauche) {
-            System.out.println("Déplacement de " + this.pseudo + " vers la gauche");
-            try {
-                Connection connexion = SingletonJDBC.getInstance().getConnection();
-                PreparedStatement requete = connexion.prepareStatement(
-                        "UPDATE dresseurs SET longitude = longitude - 0.0001 WHERE pseudo = ?");
-                requete.setString(1, this.pseudo);
-                requete.executeUpdate();
-                requete.close();
-            }
-            catch (SQLException ex) {
-                ex.printStackTrace();
-            }
-        }
+    // Récupère le rôle (CHASSEUR ou INSECTE) pour savoir quelle image afficher
+    private void recupererRole() {
         try {
-            Connection connexion = SingletonJDBC.getInstance().getConnection();
-
-            // 1) Récupérer la position du joueur
-            PreparedStatement reqPos = connexion.prepareStatement(
-                "SELECT latitude, longitude FROM dresseurs WHERE pseudo = ?"
-            );
-            reqPos.setString(1, pseudo);
-            ResultSet pos = reqPos.executeQuery();
-
-            if (pos.next()) {
-                double lat = pos.getDouble("latitude");
-                double lon = pos.getDouble("longitude");
-
-                // 2) Capturer tous les pokémons proches
-                PreparedStatement reqCapture = connexion.prepareStatement(
-                    "UPDATE pokemons " +
-                    "SET proprietaire = ? " +
-                    "WHERE ABS(latitude - ?) < 0.0001 " +
-                    "AND ABS(longitude - ?) < 0.0001"
-                );
-
-                reqCapture.setString(1, pseudo);  // nouveau propriétaire
-                reqCapture.setDouble(2, lat);
-                reqCapture.setDouble(3, lon);
-
-                int nbCaptures = reqCapture.executeUpdate();
-                if (nbCaptures > 0) {
-                    System.out.println("🎉 " + pseudo + " a capturé " + nbCaptures + " pokémon(s) !");
-                }
-                
-                reqCapture.close();
-                
-                if (nbCaptures > 0) {
-                    messageCapture = "🎉 " + pseudo + " a capturé " + nbCaptures + " pokémon(s) !";
-
-                    // 🔥 Téléporte les pokémons capturés sur le joueur
-                    PreparedStatement reqMove = connexion.prepareStatement(
-                        "UPDATE pokemons SET latitude = ?, longitude = ? WHERE proprietaire = ?"
-                    );
-                    reqMove.setDouble(1, lat);
-                    reqMove.setDouble(2, lon);
-                    reqMove.setString(3, pseudo);
-                    reqMove.executeUpdate();
-                    reqMove.close();
-                }
+            Connection con = SingletonJDBC.getInstance().getConnection();
+            PreparedStatement req = con.prepareStatement("SELECT role FROM dresseurs WHERE pseudo = ?");
+            req.setString(1, this.pseudo);
+            ResultSet res = req.executeQuery();
+            if (res.next()) {
+                this.role = res.getString("role");
+                System.out.println("Connecté en tant que : " + this.role);
             }
-
-            reqPos.close();
-
+            req.close();
         } catch (SQLException ex) {
             ex.printStackTrace();
         }
+    }
 
+    public void miseAJour() {
+        // Calcul du déplacement
+        double deltaLat = 0;
+        double deltaLon = 0;
+
+        if (toucheHaut) deltaLat += VITESSE;
+        if (toucheBas) deltaLat -= VITESSE;
+        if (toucheDroite) deltaLon += VITESSE;
+        if (toucheGauche) deltaLon -= VITESSE;
+
+        // Si le joueur bouge, on met à jour la BDD
+        if (deltaLat != 0 || deltaLon != 0) {
+            try {
+                Connection connexion = SingletonJDBC.getInstance().getConnection();
+                PreparedStatement req = connexion.prepareStatement(
+                        "UPDATE dresseurs SET latitude = latitude + ?, longitude = longitude + ?, derniereConnexion = NOW() WHERE pseudo = ?");
+                req.setDouble(1, deltaLat);
+                req.setDouble(2, deltaLon);
+                req.setString(3, this.pseudo);
+                req.executeUpdate();
+                req.close();
+                
+                // Gestion spécifique : Si je suis CHASSEUR, je tente de capturer
+                if ("CHASSEUR".equals(this.role)) {
+                    tenterCapture(connexion);
+                }
+                
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+            }
+        }
+    }
+    
+    // Méthode spéciale pour le Chasseur : capture les insectes proches
+    private void tenterCapture(Connection connexion) throws SQLException {
+        // On cherche les joueurs INSECTE très proches
+        PreparedStatement reqPos = connexion.prepareStatement(
+            "SELECT latitude, longitude FROM dresseurs WHERE pseudo = ?"
+        );
+        reqPos.setString(1, this.pseudo);
+        ResultSet res = reqPos.executeQuery();
         
-        this.toucheHaut = false;
-        this.toucheBas = false;
-        this.toucheDroite = false;
-        this.toucheGauche = false;
+        if (res.next()) {
+            double maLat = res.getDouble("latitude");
+            double maLon = res.getDouble("longitude");
+            
+            // Capture des insectes (Dresseurs avec role='INSECTE')
+            // Rayon de capture : 0.0002 degrés (~20 mètres)
+            PreparedStatement reqCapture = connexion.prepareStatement(
+                "UPDATE dresseurs SET statut = 'CAPTURE' " +
+                "WHERE role = 'INSECTE' AND statut = 'LIBRE' " +
+                "AND ABS(latitude - ?) < 0.0002 AND ABS(longitude - ?) < 0.0002"
+            );
+            reqCapture.setDouble(1, maLat);
+            reqCapture.setDouble(2, maLon);
+            int captures = reqCapture.executeUpdate();
+            
+            if (captures > 0) {
+                System.out.println("🎉 BRAVO ! Vous avez capturé " + captures + " insecte(s) !");
+            }
+            reqCapture.close();
+        }
+        reqPos.close();
     }
 
     public void rendu(Graphics2D contexte) {
         try {
             Connection connexion = SingletonJDBC.getInstance().getConnection();
-
-            PreparedStatement requete = connexion.prepareStatement("SELECT latitude, longitude FROM dresseurs WHERE pseudo = ?");
+            
+            // On récupère la position actuelle pour l'afficher
+            PreparedStatement requete = connexion.prepareStatement("SELECT latitude, longitude, role FROM dresseurs WHERE pseudo = ?");
             requete.setString(1, pseudo);
             ResultSet resultat = requete.executeQuery();
+            
             if (resultat.next()) {
                 double latitude = resultat.getDouble("latitude");
                 double longitude = resultat.getDouble("longitude");
-                //System.out.println(pseudo + " = (" + latitude + "; " + longitude + ")");
-
+                
+                // Conversion GPS -> Pixels écran
                 int x = laCarte.longitudeEnPixel(longitude);
                 int y = laCarte.latitudeEnPixel(latitude);
-                contexte.setColor(Color.red);
-                contexte.drawOval(x - 7, y - 7, 14, 14);
-                //contexte.drawString(pseudo, x + 8, y - 8);
+                
+                // Choix de l'image selon le rôle
+                BufferedImage imgAffiche = null;
+                if ("CHASSEUR".equals(this.role)) imgAffiche = spriteChasseur;
+                else if ("INSECTE".equals(this.role)) imgAffiche = spriteInsecte;
+                
+                if (imgAffiche != null) {
+                    // On centre l'image (32x32)
+                    contexte.drawImage(imgAffiche, x - 16, y - 16, 32, 32, null);
+                } else {
+                    // Fallback si pas d'image : un rond de couleur
+                    // Rouge pour Chasseur, Vert pour Insecte
+                    if ("CHASSEUR".equals(this.role)) contexte.setColor(Color.RED);
+                    else contexte.setColor(Color.GREEN);
+                    
+                    contexte.fillOval(x - 10, y - 10, 20, 20);
+                }
+                
+                // Affichage du pseudo au-dessus
+                contexte.setColor(Color.WHITE);
+                contexte.drawString(pseudo, x - 15, y - 20);
             }
             requete.close();
 
@@ -180,21 +178,9 @@ public class Avatar {
         }
     }
 
-    public void setToucheHaut(boolean etat) {
-        this.toucheHaut = etat;
-    }
-
-    public void setToucheBas(boolean etat) {
-        this.toucheBas = etat;
-    }
-
-    public void setToucheGauche(boolean etat) {
-        this.toucheGauche = etat;
-    }
-
-    public void setToucheDroite(boolean etat) {
-        this.toucheDroite = etat;
-    }
-    
-
+    // Setters pour les touches (appelés par FenetreDeJeu)
+    public void setToucheHaut(boolean etat) { this.toucheHaut = etat; }
+    public void setToucheBas(boolean etat) { this.toucheBas = etat; }
+    public void setToucheGauche(boolean etat) { this.toucheGauche = etat; }
+    public void setToucheDroite(boolean etat) { this.toucheDroite = etat; }
 }

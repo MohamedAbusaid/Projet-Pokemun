@@ -22,8 +22,9 @@ public class FenetreDeJeuGUI extends javax.swing.JFrame implements ActionListene
     /**
      * Creates new form NewJFrame
      */
-    public FenetreDeJeuGUI() {
+    public FenetreDeJeuGUI(String pseudo) {
         initComponents();
+        this.setTitle("DuBrazil - Joueur : " + pseudo);
         
         // Creation du buffer pour l'affichage du jeu et recuperation du contexte graphique
         this.framebuffer = new BufferedImage(this.jLabel1.getWidth(), this.jLabel1.getHeight(), BufferedImage.TYPE_INT_ARGB);
@@ -31,12 +32,19 @@ public class FenetreDeJeuGUI extends javax.swing.JFrame implements ActionListene
         this.contexte = this.framebuffer.createGraphics();
 
         // Creation du jeu
-        this.jeu = new Jeu();
+        this.jeu = new Jeu(pseudo);
 
         // Creation du Timer qui appelle this.actionPerformed() tous les 1 s
         this.timer = new Timer(1000, this);
         this.timer.start();
+        
+        this.setFocusable(true);
+        this.requestFocusInWindow();
     }
+    
+    public FenetreDeJeuGUI() {
+    this("JoueurTest"); // Appelle l'autre constructeur avec un nom bidon
+}
 
     // Methode appelee par le timer et qui effectue la boucle de jeu
     @Override
@@ -175,7 +183,7 @@ public class FenetreDeJeuGUI extends javax.swing.JFrame implements ActionListene
         /* Create and display the form */
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {
-                new FenetreDeJeuGUI().setVisible(true);
+                new FenetreDeJeuGUI("Moha").setVisible(true);
             }
         });
     }

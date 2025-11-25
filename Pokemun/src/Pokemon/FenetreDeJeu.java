@@ -1,5 +1,6 @@
 package pokemon;
 
+import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -12,9 +13,9 @@ import javax.swing.JLabel;
 import javax.swing.Timer;
 
 /**
- * Exemple de fenetre de jeu en utilisant uniquement des commandes
- *
- * @author guillaume.laurent
+ * Fenêtre principale du jeu DuBrazil.
+ * Elle gère la boucle de jeu (Timer), l'affichage et les entrées clavier.
+ * * @author Equipe DuBrazil
  */
 public class FenetreDeJeu extends JFrame implements ActionListener, KeyListener {
 
@@ -23,72 +24,115 @@ public class FenetreDeJeu extends JFrame implements ActionListener, KeyListener 
     private JLabel jLabel1;
     private Jeu jeu;
     private Timer timer;
+    
+    // Dimensions de la fenêtre (à adapter selon votre écran)
+    private final int LARGEUR = 640; // 30 tuiles de 32px
+    private final int HAUTEUR = 960; // 20 tuiles de 32px
 
-    public FenetreDeJeu() {
-        // initialisation de la fenetre
-        //this.setSize(3240, 1680);
+    /**
+     * Constructeur principal
+     * @param pseudo Le pseudo du joueur qui vient de se connecter
+     */
+    public FenetreDeJeu(String pseudo) {
+        // Initialisation de la fenêtre
+        this.setTitle("DuBrazil - Joueur : " + pseudo); // On affiche qui joue
         this.setResizable(false);
         this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        
         this.jLabel1 = new JLabel();
-        this.jLabel1.setPreferredSize(new java.awt.Dimension(1600, 830));
+        this.jLabel1.setPreferredSize(new java.awt.Dimension(LARGEUR, HAUTEUR));
         this.setContentPane(this.jLabel1);
         this.pack();
 
-        // Creation du buffer pour l'affichage du jeu et recuperation du contexte graphique
+        // Création du buffer graphique (Double Buffering)
         this.framebuffer = new BufferedImage(this.jLabel1.getWidth(), this.jLabel1.getHeight(), BufferedImage.TYPE_INT_ARGB);
         this.jLabel1.setIcon(new ImageIcon(framebuffer));
         this.contexte = this.framebuffer.createGraphics();
 
-        // Creation du jeu
-        this.jeu = new Jeu();
+        // Création du jeu avec le pseudo du joueur connecté
+        // IMPORTANT : Il faudra modifier le constructeur de la classe Jeu pour accepter ce pseudo !
+        this.jeu = new Jeu(pseudo);
 
-        // Creation du Timer qui appelle this.actionPerformed() tous les 1 s
-        this.timer = new Timer(1000, this);
+        // Création du Timer (Boucle de jeu)
+        this.timer = new Timer(40, this);
         this.timer.start();
 
-        // Ajout d'un ecouteur clavier
+        // Ajout de l'écouteur clavier
         this.addKeyListener(this);
+        
+        // Centrer la fenêtre à l'écran
+        this.setLocationRelativeTo(null);
     }
 
-    // Methode appelee par le timer et qui effectue la boucle de jeu
+    // --- BOUCLE DE JEU (Appelée toutes les 40ms) ---
     @Override
     public void actionPerformed(ActionEvent e) {
+        // 1. Mise à jour logique (Déplacements, BDD, Collisions)
         this.jeu.miseAJour();
+        
+        // 2. Nettoyage de l'écran (Fond noir pour éviter les traces)
+        this.contexte.setColor(Color.BLACK);
+        this.contexte.fillRect(0, 0, this.jLabel1.getWidth(), this.jLabel1.getHeight());
+
+        // 3. Rendu graphique (Dessin de la carte, des joueurs, etc.)
         this.jeu.rendu(contexte);
+        
+        // 4. Rafraîchissement de l'affichage
         this.jLabel1.repaint();
+        
+        // Vérification de fin de partie
         if (this.jeu.estTermine()) {
             this.timer.stop();
+            System.out.println("Fin de la partie !");
         }
     }
 
+    // --- GESTION CLAVIER ---
+    
     @Override
     public void keyTyped(KeyEvent evt) {
+        // Inutile ici
     }
 
     @Override
     public void keyPressed(KeyEvent evt) {
-        if (evt.getKeyCode() == evt.VK_UP) {
+        // Quand on APPUIE sur une touche
+        if (evt.getKeyCode() == KeyEvent.VK_UP) {
             this.jeu.getAvatar().setToucheHaut(true);
         }
-        if (evt.getKeyCode() == evt.VK_DOWN) {
+        if (evt.getKeyCode() == KeyEvent.VK_DOWN) {
             this.jeu.getAvatar().setToucheBas(true);
         }
-        if (evt.getKeyCode() == evt.VK_RIGHT) {
+        if (evt.getKeyCode() == KeyEvent.VK_RIGHT) {
             this.jeu.getAvatar().setToucheDroite(true);
         }
-        if (evt.getKeyCode() == evt.VK_LEFT) {
+        if (evt.getKeyCode() == KeyEvent.VK_LEFT) {
             this.jeu.getAvatar().setToucheGauche(true);
         }
     }
 
     @Override
     public void keyReleased(KeyEvent evt) {
-        
+        // Quand on RELÂCHE une touche (Essentiel pour arrêter le mouvement !)
+        if (evt.getKeyCode() == KeyEvent.VK_UP) {
+            this.jeu.getAvatar().setToucheHaut(false);
+        }
+        if (evt.getKeyCode() == KeyEvent.VK_DOWN) {
+            this.jeu.getAvatar().setToucheBas(false);
+        }
+        if (evt.getKeyCode() == KeyEvent.VK_RIGHT) {
+            this.jeu.getAvatar().setToucheDroite(false);
+        }
+        if (evt.getKeyCode() == KeyEvent.VK_LEFT) {
+            this.jeu.getAvatar().setToucheGauche(false);
+        }
     }
 
+    // Main pour tester rapidement (simule une connexion)
     public static void main(String[] args) {
-        FenetreDeJeu fenetre = new FenetreDeJeu();
+        // On lance le jeu en se faisant passer pour "Raoult" (le chasseur)
+        // Assurez-vous que "Raoult" existe dans la BDD via InitialisationBDD !
+        FenetreDeJeu fenetre = new FenetreDeJeu("Jawad");
         fenetre.setVisible(true);
     }
-
 }
