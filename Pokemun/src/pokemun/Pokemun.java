@@ -15,6 +15,7 @@ public class Pokemun {
      */
     public static void main(String[] args) {
         // TODO code application logic here
+       
     }
     
 }
