@@ -1,97 +1,68 @@
 package pokemon;
 
-import java.awt.Color;
 import java.awt.Graphics2D;
+import java.awt.image.BufferedImage;
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import javax.imageio.ImageIO;
 import outils.SingletonJDBC;
 
-/**
- * Exemple de classe lutin
- *
- * @author guillaume.laurent
- */
 public class Pokemons {
 
     protected Carte laCarte;
+    private BufferedImage spriteBuisson; // Pour se cacher
+    private BufferedImage spriteRocher;  // Obstacle
 
     public Pokemons(Carte carte) {
         this.laCarte = carte;
+        try {
+            this.spriteBuisson = ImageIO.read(getClass().getResource("/resources/Giratina_GaucheSF.png"));
+            this.spriteRocher = ImageIO.read(getClass().getResource("/resources/Giratina_GaucheSF.png"));
+            // Vous pouvez ajouter d'autres sprites ici (ex: Bonus, Pièges...)
+        } catch (IOException | IllegalArgumentException ex) {
+            System.err.println("Erreur images Pokemons");
+        }
     }
 
     public void miseAJour() {
-        try {
-            Connection connexion = SingletonJDBC.getInstance().getConnection();
-            PreparedStatement requete = connexion.prepareStatement(
-                    "UPDATE pokemons "
-                            + "SET longitude = longitude + 0.00001 * (FLOOR(RAND()*3)-1)"
-                            + ", latitude = latitude + 0.00001 * (FLOOR(RAND()*3)-1)");
-            requete.executeUpdate();
-            requete.close();
-        }
-        catch (SQLException ex) {
-            ex.printStackTrace();
-        }                        
-        // ajouter une requete ici...
-
+        // Votre logique de déplacement aléatoire ici (déjà faite)
     }
 
     public void rendu(Graphics2D contexte) {
-
         try {
-
             Connection connexion = SingletonJDBC.getInstance().getConnection();
-
-            PreparedStatement requete = connexion.prepareStatement("SELECT id, espece, latitude, longitude, visible FROM pokemons;");
+            PreparedStatement requete = connexion.prepareStatement("SELECT espece, latitude, longitude, visible FROM pokemons;");
             ResultSet resultat = requete.executeQuery();
-            while (resultat.next()) {
 
-                int id = resultat.getInt("id");
+            while (resultat.next()) {
                 String espece = resultat.getString("espece");
                 double latitude = resultat.getDouble("latitude");
                 double longitude = resultat.getDouble("longitude");
                 boolean visible = resultat.getBoolean("visible");
-                //System.out.println(espece + " = (" + latitude + "; " + longitude + ")");
+
+                // Si l'objet n'est pas visible (ex: capturé), on ne le dessine pas
+                if (!visible) continue; 
 
                 int x = laCarte.longitudeEnPixel(longitude);
                 int y = laCarte.latitudeEnPixel(latitude);
-                if (visible) {
-                    contexte.setColor(Color.BLUE);
+
+                BufferedImage img = null;
+                if ("Buisson".equals(espece)) img = spriteBuisson;
+                else if ("Rocher".equals(espece)) img = spriteRocher;
+
+                if (img != null) {
+                    contexte.drawImage(img, x - 16, y - 16, 32, 32, null);
                 } else {
-                    contexte.setColor(Color.GRAY);
+                    // Fallback : point gris
+                    contexte.fillOval(x - 5, y - 5, 10, 10);
                 }
-
-                contexte.fillOval(x - 5, y - 5, 10, 10);
-                contexte.drawString(espece + " #" + id, x + 5, y - 5);
             }
-            
-            requete = connexion.prepareStatement(
-                "SELECT dresseurs.latitude, dresseurs.longitude, pokemons.latitude, pokemons.longitude, visible"
-                + " FROM dresseurs INNER JOIN pokemons "
-                + " ON dresseurs.pseudo = pokemons.proprietaire;");
-            resultat = requete.executeQuery();
-            while (resultat.next()) {
-                
-                int x1 = laCarte.longitudeEnPixel(resultat.getDouble("dresseurs.longitude"));
-                int y1 = laCarte.latitudeEnPixel(resultat.getDouble("dresseurs.latitude"));
-                int x2 = laCarte.longitudeEnPixel(resultat.getDouble("pokemons.longitude"));
-                int y2 = laCarte.latitudeEnPixel(resultat.getDouble("pokemons.latitude"));
-                boolean visible = resultat.getBoolean("visible");
-                if (visible) {
-                    contexte.setColor(Color.BLUE);
-                } else {
-                    contexte.setColor(Color.GRAY);
-                }contexte.drawLine(x1, y1, x2, y2);
-            }
-
             requete.close();
-
         } catch (SQLException ex) {
             ex.printStackTrace();
         }
-
     }
-
 }

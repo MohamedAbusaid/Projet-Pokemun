@@ -32,19 +32,18 @@ public class Avatar {
     // Paramètres de jeu
     private final double VITESSE = 0.0001; // Vitesse de déplacement (en degrés GPS)
 
-    // --- LE CONSTRUCTEUR A ETE MODIFIE ICI ---
     public Avatar(Carte laCarte, String pseudoJoueur) {
         this.laCarte = laCarte;
-        this.pseudo = pseudoJoueur; // On stocke le pseudo reçu de la classe Jeu
+        this.pseudo = pseudoJoueur; 
         
         // Chargement des images (Sprites)
         try {
-            // Assurez-vous d'avoir ces images dans src/resources/ (sinon ça mettra des ronds de couleur)
-            // Vous pouvez mettre des images bidons pour tester si vous ne les avez pas encore
-            try { this.spriteChasseur = ImageIO.read(getClass().getResource("/resources/chasseur.png")); } catch(Exception e){}
-            try { this.spriteInsecte = ImageIO.read(getClass().getResource("/resources/insecte.png")); } catch(Exception e){}
+            // On charge les deux images, on décidera laquelle afficher dans le rendu
+            // Assurez-vous que les fichiers sont bien dans src/resources/
+            try { this.spriteChasseur = ImageIO.read(getClass().getResource("/resources/Giratina_GaucheSF.png")); } catch(Exception e){ System.err.println("Image chasseur manquante"); }
+            try { this.spriteInsecte = ImageIO.read(getClass().getResource("/resources/Giratina_GaucheSF.png")); } catch(Exception e){ System.err.println("Image insecte manquante"); }
         } catch (Exception ex) {
-            System.err.println("Erreur images : " + ex.getMessage());
+            System.err.println("Erreur globale images : " + ex.getMessage());
         }
 
         // Récupération du rôle depuis la BDD au démarrage
@@ -103,7 +102,7 @@ public class Avatar {
     
     // Méthode spéciale pour le Chasseur : capture les insectes proches
     private void tenterCapture(Connection connexion) throws SQLException {
-        // On cherche les joueurs INSECTE très proches
+        // On cherche sa propre position
         PreparedStatement reqPos = connexion.prepareStatement(
             "SELECT latitude, longitude FROM dresseurs WHERE pseudo = ?"
         );
@@ -136,9 +135,7 @@ public class Avatar {
     public void rendu(Graphics2D contexte) {
         try {
             Connection connexion = SingletonJDBC.getInstance().getConnection();
-            
-            // On récupère la position actuelle pour l'afficher
-            PreparedStatement requete = connexion.prepareStatement("SELECT latitude, longitude, role FROM dresseurs WHERE pseudo = ?");
+            PreparedStatement requete = connexion.prepareStatement("SELECT latitude, longitude FROM dresseurs WHERE pseudo = ?");
             requete.setString(1, pseudo);
             ResultSet resultat = requete.executeQuery();
             
@@ -150,26 +147,15 @@ public class Avatar {
                 int x = laCarte.longitudeEnPixel(longitude);
                 int y = laCarte.latitudeEnPixel(latitude);
                 
-                // Choix de l'image selon le rôle
+                // Choix de l'image selon le rôle (récupéré au constructeur)
                 BufferedImage imgAffiche = null;
                 if ("CHASSEUR".equals(this.role)) imgAffiche = spriteChasseur;
                 else if ("INSECTE".equals(this.role)) imgAffiche = spriteInsecte;
                 
-                if (imgAffiche != null) {
-                    // On centre l'image (32x32)
-                    contexte.drawImage(imgAffiche, x - 16, y - 16, 32, 32, null);
-                } else {
-                    // Fallback si pas d'image : un rond de couleur
-                    // Rouge pour Chasseur, Vert pour Insecte
-                    if ("CHASSEUR".equals(this.role)) contexte.setColor(Color.RED);
-                    else contexte.setColor(Color.GREEN);
-                    
-                    contexte.fillOval(x - 10, y - 10, 20, 20);
-                }
+                // --- DESSIN ---
+                //L'image est chargée, on la dessine centrée (32x32)
+                contexte.drawImage(imgAffiche, x - 16, y - 16, 32, 32, null);
                 
-                // Affichage du pseudo au-dessus
-                contexte.setColor(Color.WHITE);
-                contexte.drawString(pseudo, x - 15, y - 20);
             }
             requete.close();
 
