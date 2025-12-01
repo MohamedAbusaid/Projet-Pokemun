@@ -2,33 +2,35 @@ package pokemon;
 
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
-import java.io.IOException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.HashMap;
 import javax.imageio.ImageIO;
 import outils.SingletonJDBC;
 
 public class Pokemons {
 
     protected Carte laCarte;
-    private BufferedImage spriteBuisson; // Pour se cacher
-    private BufferedImage spriteRocher;  // Obstacle
+    private HashMap<String, BufferedImage> sprites = new HashMap<>();
 
     public Pokemons(Carte carte) {
         this.laCarte = carte;
+        chargerImage("Insecateur", "/resources/Insecateur.png");
+        chargerImage("Scarabrute", "/resources/Scarabrute.png");
+    }
+    
+    private void chargerImage(String cle, String chemin) {
         try {
-            this.spriteBuisson = ImageIO.read(getClass().getResource("/resources/Giratina_GaucheSF.png"));
-            this.spriteRocher = ImageIO.read(getClass().getResource("/resources/Giratina_GaucheSF.png"));
-            // Vous pouvez ajouter d'autres sprites ici (ex: Bonus, Pièges...)
-        } catch (IOException | IllegalArgumentException ex) {
-            System.err.println("Erreur images Pokemons");
+            sprites.put(cle, ImageIO.read(getClass().getResource(chemin)));
+        } catch (Exception e) {
+            System.err.println("Image PNJ manquante : " + chemin);
         }
     }
 
     public void miseAJour() {
-        // Votre logique de déplacement aléatoire ici (déjà faite)
+        // ... (Code de déplacement aléatoire inchangé) ...
     }
 
     public void rendu(Graphics2D contexte) {
@@ -38,31 +40,19 @@ public class Pokemons {
             ResultSet resultat = requete.executeQuery();
 
             while (resultat.next()) {
+                if (!resultat.getBoolean("visible")) continue;
+
                 String espece = resultat.getString("espece");
-                double latitude = resultat.getDouble("latitude");
-                double longitude = resultat.getDouble("longitude");
-                boolean visible = resultat.getBoolean("visible");
+                int x = laCarte.longitudeEnPixel(resultat.getDouble("longitude"));
+                int y = laCarte.latitudeEnPixel(resultat.getDouble("latitude"));
 
-                // Si l'objet n'est pas visible (ex: capturé), on ne le dessine pas
-                if (!visible) continue; 
-
-                int x = laCarte.longitudeEnPixel(longitude);
-                int y = laCarte.latitudeEnPixel(latitude);
-
-                BufferedImage img = null;
-                if ("Buisson".equals(espece)) img = spriteBuisson;
-                else if ("Rocher".equals(espece)) img = spriteRocher;
+                BufferedImage img = sprites.get(espece);
 
                 if (img != null) {
                     contexte.drawImage(img, x - 16, y - 16, 32, 32, null);
-                } else {
-                    // Fallback : point gris
-                    contexte.fillOval(x - 5, y - 5, 10, 10);
                 }
             }
             requete.close();
-        } catch (SQLException ex) {
-            ex.printStackTrace();
-        }
+        } catch (SQLException ex) { ex.printStackTrace(); }
     }
 }

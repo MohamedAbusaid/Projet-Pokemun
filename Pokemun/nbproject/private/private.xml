@@ -3,14 +3,18 @@
     <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
         <group>
-            <file>file://HERMES/EDU$/mabusaid/Documents/GitHub/Projet-Pokemun/Pokemun/src/Pokemon/FenetreDeJeuGUI.java</file>
-            <file>file://HERMES/EDU$/mabusaid/Documents/GitHub/Projet-Pokemun/Pokemun/src/Pokemon/InitialisationBDD.java</file>
-            <file>file://HERMES/EDU$/mabusaid/Documents/GitHub/Projet-Pokemun/Pokemun/src/Pokemon/FenetreDeJeu.java</file>
             <file>file://HERMES/EDU$/mabusaid/Documents/GitHub/Projet-Pokemun/Pokemun/src/Pokemon/Avatar.java</file>
-            <file>file://HERMES/EDU$/mabusaid/Documents/GitHub/Projet-Pokemun/Pokemun/src/Pokemon/Dresseurs.java</file>
             <file>file://HERMES/EDU$/mabusaid/Documents/GitHub/Projet-Pokemun/Pokemun/src/Pokemon/Carte.java</file>
+            <file>file://HERMES/EDU$/mabusaid/Documents/GitHub/Projet-Pokemun/Pokemun/src/Pokemon/Dresseurs.java</file>
+            <file>file://HERMES/EDU$/mabusaid/Documents/GitHub/Projet-Pokemun/Pokemun/src/Pokemon/FenetreDeJeu.java</file>
+            <file>file://HERMES/EDU$/mabusaid/Documents/GitHub/Projet-Pokemun/Pokemun/src/Pokemon/InitialisationBDD.java</file>
+            <file>file://HERMES/EDU$/mabusaid/Documents/GitHub/Projet-Pokemun/Pokemun/src/Pokemon/Jeu.java</file>
             <file>file://HERMES/EDU$/mabusaid/Documents/GitHub/Projet-Pokemun/Pokemun/src/Pokemon/Pokemons.java</file>
-            <file>file://HERMES/EDU$/mabusaid/Documents/GitHub/Projet-Pokemun/Pokemun/src/resources/Foret_de_Rambouillet.png</file>
+            <file>file://HERMES/EDU$/mabusaid/Documents/GitHub/Projet-Pokemun/Pokemun/src/resources/Insecateur.png</file>
+            <file>file://HERMES/EDU$/mabusaid/Documents/GitHub/Projet-Pokemun/Pokemun/src/resources/Libegon.png</file>
+            <file>file://HERMES/EDU$/mabusaid/Documents/GitHub/Projet-Pokemun/Pokemun/src/resources/Scarabrute.png</file>
+            <file>file://HERMES/EDU$/mabusaid/Documents/GitHub/Projet-Pokemun/Pokemun/src/resources/Drascore.png</file>
+            <file>file://HERMES/EDU$/mabusaid/Documents/GitHub/Projet-Pokemun/Pokemun/src/Pokemon/FenetreDeJeuGUI.java</file>
         </group>
     </open-files>
 </project-private>

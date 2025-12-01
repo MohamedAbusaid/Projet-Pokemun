@@ -130,9 +130,7 @@ public class FenetreDeJeu extends JFrame implements ActionListener, KeyListener 
 
     // Main pour tester rapidement (simule une connexion)
     public static void main(String[] args) {
-        // On lance le jeu en se faisant passer pour "Raoult" (le chasseur)
-        // Assurez-vous que "Raoult" existe dans la BDD via InitialisationBDD !
-        FenetreDeJeu fenetre = new FenetreDeJeu("Jawad");
+        FenetreDeJeu fenetre = new FenetreDeJeu("Sacha");
         fenetre.setVisible(true);
     }
 }
