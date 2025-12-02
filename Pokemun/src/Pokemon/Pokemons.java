@@ -13,45 +13,41 @@ import outils.SingletonJDBC;
 public class Pokemons {
 
     protected Carte laCarte;
-    // On stocke des tableaux d'images au lieu d'images simples
     private HashMap<String, BufferedImage[][]> sprites = new HashMap<>();
     
-    // Pour l'animation des PNJ, on utilise un timer global simple
     private int animationFrame = 0;
     private long lastTime = 0;
+    private int directionAleatoire = 1;
 
     public Pokemons(Carte carte) {
         this.laCarte = carte;
-        chargerSpriteSheet("Insecateur", "/resources/Insecateur.png"); // Nom exact du fichier !
-        chargerSpriteSheet("Scarabrute", "/resources/Scarabrute.png");
-        // chargerSpriteSheet("Giratina", "/resources/Giratina_GaucheSF.png");
+        chargerPlanche("Insecateur", "/resources/Insecateur.png");
+        chargerPlanche("Scarabrute", "/resources/Scarabrute.png");
     }
     
-    private void chargerSpriteSheet(String cle, String chemin) {
+    private void chargerPlanche(String espece, String chemin) {
         try {
             BufferedImage planche = ImageIO.read(getClass().getResource(chemin));
-            // Découpage 2x4
             BufferedImage[][] tuiles = new BufferedImage[2][4];
             for (int col = 0; col < 2; col++) {
                 for (int lig = 0; lig < 4; lig++) {
                     tuiles[col][lig] = planche.getSubimage(col * 32, lig * 32, 32, 32);
                 }
             }
-            sprites.put(cle, tuiles);
+            sprites.put(espece, tuiles);
         } catch (Exception e) {
-            System.err.println("Erreur Sprite PNJ : " + chemin);
+            System.err.println("Erreur Sprite PNJ ("+espece+") : " + chemin);
         }
     }
 
     public void miseAJour() {
-        // Animation : change toutes les 500ms pour les PNJ
-        if (System.currentTimeMillis() - lastTime > 500) {
+        if (System.currentTimeMillis() - lastTime > 1000) {
             animationFrame = (animationFrame + 1) % 2;
+            directionAleatoire = (int)(Math.random() * 4);
             lastTime = System.currentTimeMillis();
         }
         
-        // Déplacement aléatoire SQL
-         try {
+        try {
            Connection connexion = SingletonJDBC.getInstance().getConnection();
            PreparedStatement requete = connexion.prepareStatement(
                    "UPDATE pokemons SET longitude = longitude + 0.00001 * (FLOOR(RAND()*3)-1), latitude = latitude + 0.00001 * (FLOOR(RAND()*3)-1)");
@@ -73,17 +69,20 @@ public class Pokemons {
                 int x = laCarte.longitudeEnPixel(resultat.getDouble("longitude"));
                 int y = laCarte.latitudeEnPixel(resultat.getDouble("latitude"));
 
-                BufferedImage[][] sheet = sprites.get(espece);
+                BufferedImage[][] planche = sprites.get(espece);
 
-                if (sheet != null) {
-                    // Pour les PNJ, on affiche par défaut l'animation "Vers le bas" (Col 0, Lignes 2 et 3)
-                    // car on ne connait pas leur direction exacte facilement
-                    int col = 0;
-                    int lig = 2 + animationFrame; 
-                    
-                    contexte.drawImage(sheet[col][lig], x - 16, y - 16, 32, 32, null);
+                if (planche != null) {
+                    int col = 0; 
+                    int lig = 0;
+                    // Animation aléatoire pour les PNJ
+                    switch(directionAleatoire) {
+                        case 0: col = 0; lig = 0 + animationFrame; break; 
+                        case 1: col = 0; lig = 2 + animationFrame; break; 
+                        case 2: col = 1; lig = 0 + animationFrame; break; 
+                        case 3: col = 1; lig = 2 + animationFrame; break; 
+                    }
+                    contexte.drawImage(planche[col][lig], x - 16, y - 16, 32, 32, null);
                 } else {
-                     // Fallback
                     contexte.fillOval(x - 5, y - 5, 10, 10);
                 }
             }

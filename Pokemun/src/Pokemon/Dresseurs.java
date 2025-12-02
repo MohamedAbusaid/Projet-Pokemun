@@ -15,103 +15,115 @@ public class Dresseurs {
 
     protected Carte laCarte;
     private String pseudoLocal;
-    
-    // Cache pour ne pas recharger l'image du disque 25 fois par seconde
-    // Clé = Pseudo (ex: "Drascore"), Valeur = Image
-    private HashMap<String, BufferedImage> cacheImages = new HashMap<>();
+
+    // On stocke les planches découpées pour chaque RÔLE
+    // Clé = Rôle (ex: "Dresseur", "Drascore"), Valeur = Tableau 2D
+    private HashMap<String, BufferedImage[][]> sprites = new HashMap<>();
+
+    // Pour mémoriser le mouvement des autres joueurs
+    private HashMap<String, EtatJoueur> memoire = new HashMap<>();
 
     public Dresseurs(Carte laCarte, String pseudoLocal) {
         this.laCarte = laCarte;
         this.pseudoLocal = pseudoLocal;
-        // On ne pré-charge rien ici, on chargera à la volée dans le rendu
+
+        // Chargement des planches connues
+        chargerPlanche("Dresseur", "/resources/Dresseur.png");
+        chargerPlanche("Drascore", "/resources/Drascore.png");
+        chargerPlanche("Libegon", "/resources/Libegon.png");
+        // Ajoutez ici les autres rôles possibles
     }
 
-    public void miseAJour() { 
-        // Géré par la BDD
+    private void chargerPlanche(String role, String chemin) {
+        try {
+            BufferedImage planche = ImageIO.read(getClass().getResource(chemin));
+            BufferedImage[][] tuiles = new BufferedImage[2][4];
+            for (int col = 0; col < 2; col++) {
+                for (int lig = 0; lig < 4; lig++) {
+                    tuiles[col][lig] = planche.getSubimage(col * 32, lig * 32, 32, 32);
+                }
+            }
+            sprites.put(role, tuiles);
+        } catch (Exception e) {
+            System.err.println("Erreur image Dresseurs (" + role + ") : " + chemin);
+        }
     }
+
+    public void miseAJour() { }
 
     public void rendu(Graphics2D contexte) {
         try {
             Connection connexion = SingletonJDBC.getInstance().getConnection();
-            // On récupère tous les joueurs
+            // On lit la table 'joueurs'
             PreparedStatement requete = connexion.prepareStatement("SELECT pseudo, latitude, longitude, role, statut FROM joueurs;");
             ResultSet resultat = requete.executeQuery();
 
             while (resultat.next()) {
                 String pseudo = resultat.getString("pseudo");
-                
-                // 1. On s'ignore soi-même (déjà dessiné par Avatar)
-                if (pseudo.equalsIgnoreCase(this.pseudoLocal)) continue; 
-
-                // 2. On ignore les capturés
+                if (pseudo.equals(this.pseudoLocal)) continue; 
                 if ("CAPTURE".equals(resultat.getString("statut"))) continue; 
 
                 double latitude = resultat.getDouble("latitude");
                 double longitude = resultat.getDouble("longitude");
-                String role = resultat.getString("role"); 
+                String role = resultat.getString("role"); // "Dresseur", "Drascore"...
 
                 int x = laCarte.longitudeEnPixel(longitude);
                 int y = laCarte.latitudeEnPixel(latitude);
 
-                // --- GESTION DES IMAGES ---
-                
-                // Est-ce qu'on a déjà chargé l'image pour ce pseudo ?
-                BufferedImage img = cacheImages.get(pseudo);
-                
-                if (img == null) {
-                    // Non, alors on essaie de la charger
-                    try {
-                        String nomFichier = "";
-                        if ("DRESSEUR".equals(role)) {
-                            // Pour les chasseurs (Sacha, etc), on prend l'image générique ou spécifique
-                            // Ici on tente le nom du pseudo, sinon Dresseur.png
-                            try {
-                                nomFichier = "/resources/" + pseudo + ".png";
-                                img = ImageIO.read(getClass().getResource(nomFichier));
-                            } catch (Exception e) {
-                                nomFichier = "/resources/Chasseur.png"; // Fallback
-                                img = ImageIO.read(getClass().getResource(nomFichier));
-                            }
-                        } else {
-                            // Pour les POKEMON (Libegon, Drascore...), on cherche l'image de leur nom
-                            // Attention à la casse ! (Drascore.png)
-                            nomFichier = "/resources/" + pseudo + ".png";
-                            img = ImageIO.read(getClass().getResource(nomFichier));
-                        }
-                        
-                        // On stocke dans le cache pour la prochaine fois
-                        if (img != null) {
-                            cacheImages.put(pseudo, img);
-                            System.out.println("Image chargée pour : " + pseudo);
-                        }
-                        
-                    } catch (Exception ex) {
-                        // Si vraiment on trouve pas, on met une "image vide" dans le cache pour arrêter de chercher
-                        // et on affichera un point rouge
-                        System.err.println("Impossible de charger l'image pour : " + pseudo);
-                        cacheImages.put(pseudo, null); 
-                    }
+                // --- CALCUL ANIMATION DISTANTE ---
+                EtatJoueur etat = memoire.get(pseudo);
+                if (etat == null) {
+                    etat = new EtatJoueur(x, y);
+                    memoire.put(pseudo, etat);
                 }
-
-                // --- DESSIN ---
                 
-                if (img != null) {
-                    contexte.drawImage(img, x - 16, y - 16, 32, 32, null);
+                // Déduction direction
+                int direction = etat.direction;
+                boolean bouge = false;
+                if (x > etat.lastX) { direction = 3; bouge = true; }
+                else if (x < etat.lastX) { direction = 2; bouge = true; }
+                else if (y > etat.lastY) { direction = 1; bouge = true; }
+                else if (y < etat.lastY) { direction = 0; bouge = true; }
+
+                if (bouge) {
+                    etat.etapeAnimation = (etat.etapeAnimation + 1) % 2;
+                    etat.direction = direction;
                 } else {
-                    // Fallback (Point de couleur) si pas d'image
-                    if ("DRESSEUR".equals(role)) contexte.setColor(Color.RED);
-                    else contexte.setColor(Color.YELLOW); // Jaune pour les insectes sans image
-                    
-                    contexte.fillOval(x - 10, y - 10, 20, 20);
+                    etat.etapeAnimation = 0;
+                }
+                etat.lastX = x;
+                etat.lastY = y;
+
+                // --- AFFICHAGE ---
+                BufferedImage[][] planche = sprites.get(role);
+                
+                if (planche != null) {
+                    int col = 0; 
+                    int lig = 0;
+                    switch(direction) {
+                        case 0: col = 0; lig = 0 + etat.etapeAnimation; break;
+                        case 1: col = 0; lig = 2 + etat.etapeAnimation; break;
+                        case 2: col = 1; lig = 0 + etat.etapeAnimation; break;
+                        case 3: col = 1; lig = 2 + etat.etapeAnimation; break;
+                    }
+                    contexte.drawImage(planche[col][lig], x - 16, y - 16, 32, 32, null);
+                } else {
+                    // Fallback si image pas chargée
+                    contexte.setColor(Color.GRAY);
+                    contexte.fillOval(x - 5, y - 5, 10, 10);
                 }
                 
                 contexte.setColor(Color.WHITE);
                 contexte.drawString(pseudo, x - 10, y - 20);
             }
             requete.close();
-
-        } catch (SQLException ex) { 
-            ex.printStackTrace(); 
-        }
+        } catch (SQLException ex) { ex.printStackTrace(); }
+    }
+    
+    private class EtatJoueur {
+        int lastX, lastY;
+        int direction = 1; 
+        int etapeAnimation = 0;
+        public EtatJoueur(int x, int y) { this.lastX = x; this.lastY = y; }
     }
 }
