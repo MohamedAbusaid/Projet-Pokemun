@@ -41,10 +41,9 @@ public class Avatar {
         try {
             String nomImage = "";
             if ("Dresseur".equalsIgnoreCase(role)) {
-                // Si je suis le dresseur, je charge Dresseur.png
                 nomImage = "/resources/Dresseur.png"; 
             } else {
-                // Si je suis Drascore, je charge Drascore.png
+                // Si je suis un Pokémon, je charge l'image de mon espèce
                 nomImage = "/resources/" + role + ".png"; 
             }
             
@@ -140,7 +139,6 @@ public class Avatar {
             double maLat = res.getDouble("latitude");
             double maLon = res.getDouble("longitude");
             
-            // On capture tout ce qui n'est PAS un Dresseur
             PreparedStatement reqCapture = connexion.prepareStatement(
                 "UPDATE joueurs SET statut = 'CAPTURE' " +
                 "WHERE role != 'Dresseur' AND statut = 'LIBRE' " +
@@ -169,16 +167,26 @@ public class Avatar {
                 int x = laCarte.longitudeEnPixel(longitude);
                 int y = laCarte.latitudeEnPixel(latitude);
                 
-                // Calcul de la bonne image dans la grille
+                // --- CORRECTION COULEUR ---
+                // On définit la couleur du joueur ICI pour l'utiliser pour le rond ET le texte
+                Color couleurJoueur;
+                if ("Dresseur".equalsIgnoreCase(this.role)) {
+                    couleurJoueur = Color.RED;
+                } else {
+                    couleurJoueur = Color.YELLOW; // Jaune pour les Pokémon (Insectes)
+                }
+                // --------------------------
+
+                // Calcul de la bonne image
                 BufferedImage imgAffiche = null;
                 if (sprites != null) {
                     int col = 0;
                     int lig = 0;
                     switch(direction) {
-                        case 0: col = 0; lig = 0 + etapeAnimation; break; // Haut
-                        case 1: col = 0; lig = 2 + etapeAnimation; break; // Bas
-                        case 2: col = 1; lig = 0 + etapeAnimation; break; // Gauche
-                        case 3: col = 1; lig = 2 + etapeAnimation; break; // Droite
+                        case 0: col = 0; lig = 0 + etapeAnimation; break; 
+                        case 1: col = 0; lig = 2 + etapeAnimation; break; 
+                        case 2: col = 1; lig = 0 + etapeAnimation; break; 
+                        case 3: col = 1; lig = 2 + etapeAnimation; break; 
                     }
                     imgAffiche = sprites[col][lig];
                 }
@@ -186,18 +194,19 @@ public class Avatar {
                 if (imgAffiche != null) {
                     contexte.drawImage(imgAffiche, x - 16, y - 16, 32, 32, null);
                 } else {
-                    contexte.setColor(Color.RED);
+                    // Fallback avec la bonne couleur
+                    contexte.setColor(couleurJoueur);
                     contexte.fillOval(x - 10, y - 10, 20, 20);
                 }
                 
-                // --- MODIF ICI : Texte en ROUGE et GRAS ---
-                contexte.setColor(Color.RED); // Couleur Rouge
-                contexte.setFont(new java.awt.Font("Dialog", java.awt.Font.BOLD, 12)); // Police Grasse
+                // --- AFFICHAGE PSEUDO CENTRÉ AVEC LA BONNE COULEUR ---
+                contexte.setColor(couleurJoueur); // Rouge pour Dresseur, Jaune pour Pokemon
+                contexte.setFont(new java.awt.Font("Dialog", java.awt.Font.BOLD, 12));
                 
                 FontMetrics fm = contexte.getFontMetrics();
                 int largeurTexte = fm.stringWidth(pseudo);
                 contexte.drawString(pseudo, x - (largeurTexte / 2), y - 20);
-                // ------------------------------------------
+                // -----------------------------------------------------
             }
             requete.close();
         } catch (SQLException ex) { ex.printStackTrace(); }
