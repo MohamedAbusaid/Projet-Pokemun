@@ -26,7 +26,7 @@ public class Avatar {
     
     // Vitesses ajustées
     private final double VITESSE_LAT = 0.000015; 
-    private final double VITESSE_LON = 0.000045; 
+    private final double VITESSE_LON = 0.000060; 
 
     public Avatar(Carte laCarte, String pseudoJoueur) {
         this.laCarte = laCarte;
@@ -181,7 +181,7 @@ public class Avatar {
                 }
 
                 if (imgAffiche != null) {
-                    contexte.drawImage(imgAffiche, x - 16, y - 16, 32, 32, null);
+                    contexte.drawImage(imgAffiche, x - 16, y - 16, 128, 128, null);
                 } else {
                     contexte.setColor(Color.RED);
                     contexte.fillOval(x - 10, y - 10, 20, 20);

@@ -21,7 +21,7 @@ public class Pokemons {
 
     public Pokemons(Carte carte) {
         this.laCarte = carte;
-        chargerPlanche("Insecateur", "/resources/Insecateur.png");
+        chargerPlanche("Cizayox", "/resources/Cizayox.png");
         chargerPlanche("Scarabrute", "/resources/Scarabrute.png");
     }
     
