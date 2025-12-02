@@ -1,6 +1,7 @@
 package pokemon;
 
 import java.awt.Color;
+import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.sql.Connection;
@@ -14,6 +15,8 @@ public class Avatar {
 
     // Contrôles
     private boolean toucheHaut, toucheBas, toucheDroite, toucheGauche;
+    
+    // Infos joueur
     private String pseudo;
     private String role; 
     protected Carte laCarte;
@@ -181,13 +184,20 @@ public class Avatar {
                 }
 
                 if (imgAffiche != null) {
-                    contexte.drawImage(imgAffiche, x - 16, y - 16, 128, 128, null);
+                    contexte.drawImage(imgAffiche, x - 16, y - 16, 32, 32, null);
                 } else {
                     contexte.setColor(Color.RED);
                     contexte.fillOval(x - 10, y - 10, 20, 20);
                 }
-                // contexte.setColor(Color.WHITE);
-                // contexte.drawString(pseudo, x - 15, y - 20);
+                
+                // --- MODIF ICI : Texte en ROUGE et GRAS ---
+                contexte.setColor(Color.RED); // Couleur Rouge
+                contexte.setFont(new java.awt.Font("Dialog", java.awt.Font.BOLD, 12)); // Police Grasse
+                
+                FontMetrics fm = contexte.getFontMetrics();
+                int largeurTexte = fm.stringWidth(pseudo);
+                contexte.drawString(pseudo, x - (largeurTexte / 2), y - 20);
+                // ------------------------------------------
             }
             requete.close();
         } catch (SQLException ex) { ex.printStackTrace(); }
