@@ -173,19 +173,8 @@ public class Dresseurs {
                     // Dessiner l'image de la µ-ball
                     contexte.drawImage(muBallSprite, x - taille/2, y - taille/2, taille, taille, null);
                 }
-            } else {
-                // Fallback (pour le debug, au cas où l'image n'est pas chargée)
-                contexte.setColor(Color.CYAN); 
-                while (resultatAttaques.next()) {
-                    double latitude = resultatAttaques.getDouble("lat_actuelle");
-                    double longitude = resultatAttaques.getDouble("lon_actuelle");
-                    int x = laCarte.longitudeEnPixel(longitude);
-                    int y = laCarte.latitudeEnPixel(latitude);
-                    contexte.fillOval(x - 5, y - 5, 10, 10);
-                }
             }
             reqAttaques.close(); 
-
         } catch (SQLException ex) { ex.printStackTrace(); }
     }
     
