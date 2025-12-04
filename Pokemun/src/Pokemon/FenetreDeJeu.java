@@ -6,6 +6,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
+import java.awt.event.MouseListener;
 import java.awt.image.BufferedImage;
 import javax.swing.ImageIcon;
 import javax.swing.JFrame;
@@ -17,7 +18,7 @@ import javax.swing.Timer;
  * Elle gère la boucle de jeu (Timer), l'affichage et les entrées clavier.
  * * @author Equipe DuBrazil
  */
-public class FenetreDeJeu extends JFrame implements ActionListener, KeyListener {
+public class FenetreDeJeu extends JFrame implements ActionListener, KeyListener, MouseListener {
 
     private BufferedImage framebuffer;
     private Graphics2D contexte;
@@ -59,6 +60,9 @@ public class FenetreDeJeu extends JFrame implements ActionListener, KeyListener 
 
         // Ajout de l'écouteur clavier
         this.addKeyListener(this);
+        
+        // Ajout de l'écouteur souris
+        this.addMouseListener(this);
         
         // Centrer la fenêtre à l'écran
         this.setLocationRelativeTo(null);
@@ -127,6 +131,25 @@ public class FenetreDeJeu extends JFrame implements ActionListener, KeyListener 
             this.jeu.getAvatar().setToucheGauche(false);
         }
     }
+    
+    @Override
+    public void mouseClicked(java.awt.event.MouseEvent evt) {
+        if ("Dresseur".equalsIgnoreCase(this.jeu.getAvatar().getRole())) {
+            this.jeu.getAvatar().lancerMuball(evt.getX(), evt.getY());
+        }
+    }
+
+    @Override
+    public void mousePressed(java.awt.event.MouseEvent evt) {}
+
+    @Override
+    public void mouseReleased(java.awt.event.MouseEvent evt) {}
+
+    @Override
+    public void mouseEntered(java.awt.event.MouseEvent evt) {}
+
+    @Override
+    public void mouseExited(java.awt.event.MouseEvent evt) {}
 
     // Main pour tester rapidement (simule une connexion)
     public static void main(String[] args) {
