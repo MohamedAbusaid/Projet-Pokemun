@@ -36,7 +36,7 @@ public class InitialisationBDD {
             statement.executeUpdate("INSERT INTO parties (etat) VALUES ('ATTENTE')");
             
             // Joueurs
-            statement.executeUpdate("INSERT INTO joueurs VALUES ('Jawad', '1234', 'Dresseur', 47.250221, 5.995451, 'LIBRE', NOW())");
+            statement.executeUpdate("INSERT INTO joueurs VALUES ('Jawad', '1234', 'Dresseur', 47.251617, 5.993995, 'LIBRE', NOW())");
             statement.executeUpdate("INSERT INTO joueurs VALUES ('Tanguy', '1234', 'Drascore', 47.251617, 5.993995, 'LIBRE', NOW())");
             statement.executeUpdate("INSERT INTO joueurs VALUES ('Moha', '1234', 'Libegon', 47.250925, 5.992382, 'LIBRE', NOW())");
             
