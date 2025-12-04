@@ -1,4 +1,4 @@
-package pokemon;
+package Pokemon;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -42,9 +42,9 @@ public class InitialisationBDD {
             statement.executeUpdate("INSERT INTO parties (etat) VALUES ('ATTENTE')");
             
             // Joueurs
-            statement.executeUpdate("INSERT INTO joueurs VALUES ('Jawad', '1234', 'Dresseur', 47.251855, 5.988695, 'LIBRE', NOW())");
+            statement.executeUpdate("INSERT INTO joueurs VALUES ('Jawad', '1234', 'Dresseur', 47.251917, 5.988699, 'LIBRE', NOW())");
             statement.executeUpdate("INSERT INTO joueurs VALUES ('Tanguy', '1234', 'Drascore', 47.251617, 5.993995, 'LIBRE', NOW())");
-            statement.executeUpdate("INSERT INTO joueurs VALUES ('Moha', '1234', 'Libegon', 47.250925, 5.992382, 'LIBRE', NOW())");
+            statement.executeUpdate("INSERT INTO joueurs VALUES ('Moha', '1234', 'Libegon', 47.251017, 5.993995, 'LIBRE', NOW())");
             
             // PNJ
             statement.executeUpdate("INSERT INTO pokemons (espece, latitude, longitude, visible, proprietaire) VALUES ('Cizayox', 47.250983, 5.995654, 1, NULL)");
