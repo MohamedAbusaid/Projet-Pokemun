@@ -10,6 +10,7 @@ import java.sql.SQLException;
 import java.util.HashMap;
 import javax.imageio.ImageIO;
 import outils.SingletonJDBC;
+import java.io.IOException;
 
 public class Dresseurs {
 
@@ -24,6 +25,9 @@ public class Dresseurs {
 
     // Mémoire pour l'animation
     private HashMap<String, EtatJoueur> memoire = new HashMap<>();
+    
+    // Image de la µ-ball
+    private BufferedImage muBallSprite;
 
     public Dresseurs(Carte laCarte, String pseudoLocal) {
         this.laCarte = laCarte;
@@ -38,6 +42,14 @@ public class Dresseurs {
         // Assurez-vous que ces images sont bien des planches 2x4 (64x128px)
         chargerPlanche(spritesCapture, "Drascore", "/resources/Drascore_Capture.png");
         chargerPlanche(spritesCapture, "Libegon", "/resources/Libegon_Capture.png");
+        
+        // 3. Chargement de la µ-ball
+        try {
+            // Assurez-vous que le chemin d'accès à 'mu_ball.png' est correct
+            this.muBallSprite = ImageIO.read(getClass().getResource("/resources/mu_ball.png"));
+        } catch (IOException e) {
+            System.err.println("Erreur chargement Sprite μ-ball : " + e.getMessage());
+        }
     }
     
     // Méthode générique pour charger et découper une planche dans une Map donnée
@@ -70,8 +82,9 @@ public class Dresseurs {
 
             while (resultat.next()) {
                 String pseudo = resultat.getString("pseudo");
+                // Ignorer le joueur local, car il est rendu par la classe Avatar
                 if (pseudo.equals(this.pseudoLocal)) continue; 
-                
+
                 String statut = resultat.getString("statut");
                 boolean estCapture = "CAPTURE".equals(statut);
 
@@ -106,15 +119,13 @@ public class Dresseurs {
 
                 // --- CHOIX DE LA PLANCHE À DESSINER ---
                 BufferedImage[][] plancheActive = null;
-                
+
                 if (estCapture) {
-                    // Si capturé, on prend dans la liste des sprites de capture
                     plancheActive = spritesCapture.get(role);
                 } else {
-                    // Sinon, on prend dans la liste normale
                     plancheActive = sprites.get(role);
                 }
-                
+
                 // --- DESSIN DE L'ANIMATION ---
                 if (plancheActive != null) {
                     int col = 0; 
@@ -132,15 +143,49 @@ public class Dresseurs {
                     contexte.setColor(Color.GRAY);
                     contexte.fillOval(x - 5, y - 5, 10, 10);
                 }
-                
+
                 // Affichage Pseudo
                 if (estCapture) contexte.setColor(Color.RED);
                 else contexte.setColor(Color.WHITE);
-                
+
                 int largeurTexte = contexte.getFontMetrics().stringWidth(pseudo);
                 contexte.drawString(pseudo, x - (largeurTexte / 2), y - 20);
             }
             requete.close();
+
+            // --- Rendu des Attaques (μ-balls)---
+            PreparedStatement reqAttaques = connexion.prepareStatement(
+                "SELECT lat_actuelle, lon_actuelle FROM attaques WHERE type = 'MUBALL';"
+            );
+            ResultSet resultatAttaques = reqAttaques.executeQuery();
+
+            // On vérifie si le sprite de la µ-ball a été chargé
+            if (muBallSprite != null) {
+                int taille = 8; // Taille du sprite dessiné
+
+                while (resultatAttaques.next()) {
+                    double latitude = resultatAttaques.getDouble("lat_actuelle");
+                    double longitude = resultatAttaques.getDouble("lon_actuelle");
+
+                    int x = laCarte.longitudeEnPixel(longitude);
+                    int y = laCarte.latitudeEnPixel(latitude);
+
+                    // Dessiner l'image de la µ-ball
+                    contexte.drawImage(muBallSprite, x - taille/2, y - taille/2, taille, taille, null);
+                }
+            } else {
+                // Fallback (pour le debug, au cas où l'image n'est pas chargée)
+                contexte.setColor(Color.CYAN); 
+                while (resultatAttaques.next()) {
+                    double latitude = resultatAttaques.getDouble("lat_actuelle");
+                    double longitude = resultatAttaques.getDouble("lon_actuelle");
+                    int x = laCarte.longitudeEnPixel(longitude);
+                    int y = laCarte.latitudeEnPixel(latitude);
+                    contexte.fillOval(x - 5, y - 5, 10, 10);
+                }
+            }
+            reqAttaques.close(); 
+
         } catch (SQLException ex) { ex.printStackTrace(); }
     }
     

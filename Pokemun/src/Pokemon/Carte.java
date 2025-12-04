@@ -65,5 +65,20 @@ public class Carte {
         }
         return y;
     }
+    
+    public double pixelEnLongitude(int x) {
+        double largeurDecor = this.decor.getWidth();
+        double rangeLon = LONGITUDE_MAX - LONGITUDE_MIN;
+        // Inverse de longitudeEnPixel
+        return LONGITUDE_MIN + ((double) x / largeurDecor) * rangeLon;
+    }
+
+    public double pixelEnLatitude(int y) {
+        double hauteurDecor = this.decor.getHeight();
+        double rangeLat = LATITUDE_MAX - LATITUDE_MIN;
+        // Inverse de latitudeEnPixel, en tenant compte de l'inversion de l'axe Y
+        double yInverse = hauteurDecor - (double) y;
+        return LATITUDE_MIN + (yInverse / hauteurDecor) * rangeLat;
+    }
 
 }
