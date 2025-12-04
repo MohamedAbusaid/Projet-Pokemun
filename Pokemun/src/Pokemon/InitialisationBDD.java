@@ -1,4 +1,4 @@
-package pokemon;
+package Pokemon;
 
 import java.sql.Connection;
 import java.sql.DriverManager;

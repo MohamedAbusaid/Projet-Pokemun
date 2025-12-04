@@ -1,4 +1,4 @@
-package pokemon;
+package Pokemon;
 
 import java.awt.Color;
 import java.awt.FontMetrics;
