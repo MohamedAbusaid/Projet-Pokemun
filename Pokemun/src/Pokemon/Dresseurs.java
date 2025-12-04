@@ -1,4 +1,4 @@
-package pokemon;
+package Pokemon;
 
 import java.awt.Color;
 import java.awt.Graphics2D;
@@ -62,7 +62,7 @@ public class Dresseurs {
 
     public void miseAJour() { }
 
-    public void rendu(Graphics2D contexte) {
+public void rendu(Graphics2D contexte) {
         try {
             Connection connexion = SingletonJDBC.getInstance().getConnection();
             PreparedStatement requete = connexion.prepareStatement("SELECT pseudo, latitude, longitude, role, statut FROM joueurs;");
@@ -70,7 +70,7 @@ public class Dresseurs {
 
             while (resultat.next()) {
                 String pseudo = resultat.getString("pseudo");
-                if (pseudo.equals(this.pseudoLocal)) continue; 
+                if (pseudo.equals(this.pseudoLocal)) continue; // On ne s'affiche pas soi-même
                 
                 String statut = resultat.getString("statut");
                 boolean estCapture = "CAPTURE".equals(statut);
@@ -82,7 +82,17 @@ public class Dresseurs {
                 int x = laCarte.longitudeEnPixel(longitude);
                 int y = laCarte.latitudeEnPixel(latitude);
 
-                // --- CALCUL ANIMATION (Identique pour libre ou capturé) ---
+                // =========================================================
+                // 1. DÉTECTION DU SAUT (L'ASTUCE EST ICI)
+                // =========================================================
+                // On regarde sur quelle tuile se trouve ce joueur
+                int idTuile = laCarte.getTuileID(latitude, longitude);
+                
+                // Si c'est un rebord, on considère qu'il est en train de sauter
+                boolean enSaut = (idTuile == 3 || idTuile == 31 || idTuile == 32);
+                // =========================================================
+
+                // --- CALCUL ANIMATION (Mouvement fluide) ---
                 EtatJoueur etat = memoire.get(pseudo);
                 if (etat == null) {
                     etat = new EtatJoueur(x, y);
@@ -90,6 +100,8 @@ public class Dresseurs {
                 }
                 int direction = etat.direction;
                 boolean bouge = false;
+                
+                // Détection du mouvement pour animer les jambes
                 if (x > etat.lastX) { direction = 3; bouge = true; }
                 else if (x < etat.lastX) { direction = 2; bouge = true; }
                 else if (y > etat.lastY) { direction = 1; bouge = true; }
@@ -104,36 +116,57 @@ public class Dresseurs {
                 etat.lastX = x;
                 etat.lastY = y;
 
-                // --- CHOIX DE LA PLANCHE À DESSINER ---
+                // --- CHOIX DE LA PLANCHE ---
                 BufferedImage[][] plancheActive = null;
-                
                 if (estCapture) {
-                    // Si capturé, on prend dans la liste des sprites de capture
                     plancheActive = spritesCapture.get(role);
                 } else {
-                    // Sinon, on prend dans la liste normale
                     plancheActive = sprites.get(role);
                 }
                 
-                // --- DESSIN DE L'ANIMATION ---
+                // --- DESSIN AVEC EFFET ZOOM ---
                 if (plancheActive != null) {
                     int col = 0; 
                     int lig = 0;
-                    // Sélection de la bonne case (Haut/Bas/Gauche/Droite)
+                    
+                    // Sélection du sprite de base
                     switch(direction) {
-                        case 0: col = 0; lig = 0 + etat.etapeAnimation; break; // Haut
-                        case 1: col = 0; lig = 2 + etat.etapeAnimation; break; // Bas
-                        case 2: col = 1; lig = 0 + etat.etapeAnimation; break; // Gauche
-                        case 3: col = 1; lig = 2 + etat.etapeAnimation; break; // Droite
+                        case 0: col = 0; lig = 0 + etat.etapeAnimation; break;
+                        case 1: col = 0; lig = 2 + etat.etapeAnimation; break;
+                        case 2: col = 1; lig = 0 + etat.etapeAnimation; break;
+                        case 3: col = 1; lig = 2 + etat.etapeAnimation; break;
                     }
-                    contexte.drawImage(plancheActive[col][lig], x - 16, y - 16, 32, 32, null);
+                    
+                    // =====================================================
+                    // 2. APPLICATION DE LA TAILLE XXL
+                    // =====================================================
+                    int taille = 32; // Taille normale
+                    int offset = 0;  // Décalage normal
+                    
+                    if (enSaut) {
+                        taille = 54;  // ZOOM XXL (Même taille que toi)
+                        offset = -11; // Même décalage que toi
+                        
+                        // Petit bonus visuel : Quand ils sautent, on fige les jambes
+                        // pour ne pas qu'ils aient l'air de courir en l'air
+                        if (direction == 0 || direction == 1) lig = 2; 
+                    }
+                    // =====================================================
+
+                    contexte.drawImage(plancheActive[col][lig], 
+                        (x - 16) + offset, 
+                        (y - 16) + offset, 
+                        taille,            
+                        taille,            
+                        null);
+                        
                 } else {
-                    // Fallback
+                    // Fallback (Carré gris si pas d'image)
                     contexte.setColor(Color.GRAY);
                     contexte.fillOval(x - 5, y - 5, 10, 10);
                 }
                 
-                // Affichage Pseudo
+                // Affichage du Pseudo
                 if (estCapture) contexte.setColor(Color.RED);
                 else contexte.setColor(Color.WHITE);
                 

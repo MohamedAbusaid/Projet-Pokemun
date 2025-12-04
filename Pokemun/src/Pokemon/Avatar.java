@@ -1,4 +1,4 @@
-package pokemon;
+package Pokemon;
 
 import java.awt.Color;
 import java.awt.FontMetrics;
@@ -29,6 +29,11 @@ public class Avatar {
     private int direction = 1; // 0=Haut, 1=Bas, 2=Gauche, 3=Droite
     private int etapeAnimation = 0; 
     private long dernierChangement = 0; 
+    
+    // --- A AJOUTER : VARIABLES DU SAUT ---
+    private boolean enSaut = false;       // Est-on en l'air ?
+    private long debutSaut = 0;           // Chronomètre
+    private final int DUREE_SAUT = 550;   // Durée allongée pour bien voir l'effet
     
     // Vitesses ajustées
     private final double VITESSE_LAT = 0.000015; 
@@ -120,16 +125,22 @@ public class Avatar {
         }
     }
     
-    public void miseAJour() {
-        // 1. Sécurité : On ne bouge pas si on n'a pas encore chargé notre position depuis la BDD
+public void miseAJour() {
         if (!positionInitialisee) return; 
 
-        // 2. On prépare la prochaine position (Hypothèse)
+        // 1. GESTION DU CHRONO SAUT
+        // Si on est en l'air, on vérifie si c'est fini
+        if (enSaut) {
+            if (System.currentTimeMillis() - debutSaut > DUREE_SAUT) {
+                enSaut = false; // Atterrissage !
+            }
+        }
+
         double futurLat = maLatitude;
         double futurLon = maLongitude;
         boolean enMouvement = false;
 
-        // 3. On regarde les touches appuyées
+        // Gestion des touches (inchangé)
         if (toucheHaut) {
             futurLat += VITESSE_LAT;
             direction = 0;
@@ -148,7 +159,7 @@ public class Avatar {
             enMouvement = true;
         }
 
-        // 4. Gestion de l'animation (les jambes qui bougent)
+        // Animation des jambes (inchangé)
         if (enMouvement) {
             if (System.currentTimeMillis() - dernierChangement > 200) {
                 etapeAnimation = (etapeAnimation + 1) % 2;
@@ -159,34 +170,39 @@ public class Avatar {
         }
 
         // =========================================================
-        // C'EST ICI QUE TU COLLES TON BLOC DE COLLISION
+        // BLOC DE COLLISION ET SAUT
         // =========================================================
         if (enMouvement) {
-            // A. On demande à la carte : "Est-ce que je peux aller là ?"
+            // NOTE : On passe 'this.direction' pour les sens uniques
             if (laCarte.estTraversable(futurLat, futurLon, this.direction)) {
                 
-                // OUI : On valide le déplacement
+                // On valide le déplacement
                 this.maLatitude = futurLat;
                 this.maLongitude = futurLon;
-                
-                // On sauvegarde en BDD (pour que les autres nous voient bouger)
                 sauvegarderPositionBDD();
 
-                // B. On vérifie sur QUOI on marche (Interaction)
+                // On regarde sur quoi on a marché
                 int typeSol = laCarte.getTuileID(futurLat, futurLon);
+
+                // --- DÉCLENCHEUR DU SAUT ---
+                // Si c'est un rebord (3, 31, 32) et qu'on ne saute pas déjà
+                if ((typeSol == 3 || typeSol == 31 || typeSol == 32) && !enSaut) {
+                    enSaut = true;
+                    debutSaut = System.currentTimeMillis();
+                    etapeAnimation = 1; // On fige les jambes pour le style
+                }
+                // ---------------------------
                 
-                // Exemple : Si ID 1 ou 2 = Hautes herbes
+                // Hautes herbes (inchangé)
                 if (typeSol == 1 || typeSol == 2) {
-                     // 1 chance sur 500 à chaque pas (ajuste le 0.002 selon tes goûts)
                      if (Math.random() < 0.002) {
                          System.out.println("!!! Un Pokémon sauvage apparaît !!!");
-                         // C'est ici que tu lanceras plus tard : new FenetreCombat();
                      }
                 }
 
             } else {
-                // NON : Mur -> On ne change pas maLatitude/maLongitude
-                System.out.println("Bloqué par un obstacle (ID: " + laCarte.getTuileID(futurLat, futurLon) + ")");
+                // Bloqué par un mur
+                // System.out.println("Bloqué !");
             }
         }
     }
@@ -249,16 +265,33 @@ public class Avatar {
                         case 2: col = 1; lig = 0 + etapeAnimation; break; 
                         case 3: col = 1; lig = 2 + etapeAnimation; break; 
                     }
-                    imgAffiche = sprites[col][lig];
+imgAffiche = sprites[col][lig];
+            }
+
+            if (imgAffiche != null) {
+                // --- MODIFICATION : EFFET ZOOM SAUT ---
+                int taille = 32; // Taille normale
+                int offset = 0;  // Pas de décalage
+                
+                if (enSaut) {
+                    taille = 54;  // ZOOM XXL (x1.7 environ)
+                    offset = -11; // On remonte et décale à gauche pour centrer le gros sprite
                 }
 
-                if (imgAffiche != null) {
-                    contexte.drawImage(imgAffiche, x - 16, y - 16, 32, 32, null);
-                } else {
-                    // Fallback avec la bonne couleur
-                    contexte.setColor(couleurJoueur);
-                    contexte.fillOval(x - 10, y - 10, 20, 20);
-                }
+                // On dessine avec les variables calculées
+                contexte.drawImage(imgAffiche, 
+                        (x - 16) + offset, 
+                        (y - 16) + offset, 
+                        taille,            
+                        taille,            
+                        null);
+                // --------------------------------------
+
+            } else {
+                // Fallback (inchangé)
+                contexte.setColor(couleurJoueur);
+                contexte.fillOval(x - 10, y - 10, 20, 20);
+            }
                 
                 // --- AFFICHAGE PSEUDO CENTRÉ AVEC LA BONNE COULEUR ---
                 contexte.setColor(couleurJoueur); // Rouge pour Dresseur, Jaune pour Pokemon
@@ -277,4 +310,54 @@ public class Avatar {
     public void setToucheBas(boolean etat) { this.toucheBas = etat; }
     public void setToucheGauche(boolean etat) { this.toucheGauche = etat; }
     public void setToucheDroite(boolean etat) { this.toucheDroite = etat; }
+    
+    public String getRole() { 
+        return role;
+    }
+
+    /**
+     * Lance une μ-ball si le joueur est le Dresseur.
+     * Insère la position de départ (dresseur) et la cible (clic) dans la BDD.
+     * @param xPixel La coordonnée X du clic.
+     * @param yPixel La coordonnée Y du clic.
+     */
+    public void lancerMuball(int xPixel, int yPixel) {
+        if (!"Dresseur".equalsIgnoreCase(this.role)) return; // Seul le dresseur peut attaquer
+
+        try {
+            double latCible = this.laCarte.pixelEnLatitude(yPixel);
+            double lonCible = this.laCarte.pixelEnLongitude(xPixel);
+
+            Connection connexion = SingletonJDBC.getInstance().getConnection();
+
+            // 1. Récupérer la position de DÉPART (position actuelle du dresseur)
+            double latDepart = 0.0, lonDepart = 0.0;
+            try (PreparedStatement reqPos = connexion.prepareStatement(
+                    "SELECT latitude, longitude FROM joueurs WHERE pseudo = ?")) {
+                reqPos.setString(1, pseudo);
+                try (ResultSet pos = reqPos.executeQuery()) {
+                    if (pos.next()) {
+                        latDepart = pos.getDouble("latitude");
+                        lonDepart = pos.getDouble("longitude");
+                    }
+                }
+            }
+
+            // 2. Insérer la nouvelle attaque (µ-ball)
+            try (PreparedStatement reqInsertAttaque = connexion.prepareStatement(
+                "INSERT INTO attaques (attaquant, type, lat_actuelle, lon_actuelle, lat_cible, lon_cible) VALUES (?, 'MUBALL', ?, ?, ?, ?)"
+            )) {
+                reqInsertAttaque.setString(1, pseudo);
+                reqInsertAttaque.setDouble(2, latDepart);   // Position ACTUELLE (départ)
+                reqInsertAttaque.setDouble(3, lonDepart);
+                reqInsertAttaque.setDouble(4, latCible);    // Position CIBLE (clic)
+                reqInsertAttaque.setDouble(5, lonCible);
+
+                reqInsertAttaque.executeUpdate();
+                System.out.println(pseudo + " a lancé une μ-ball vers (" + lonCible + ", " + latCible + ")");
+            }
+        } catch (SQLException ex) {
+            ex.printStackTrace();
+        }
+    }
 }
