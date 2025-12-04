@@ -153,7 +153,7 @@ public class FenetreDeJeu extends JFrame implements ActionListener, KeyListener,
 
     // Main pour tester rapidement (simule une connexion)
     public static void main(String[] args) {
-        FenetreDeJeu fenetre = new FenetreDeJeu("Jawad");
+        FenetreDeJeu fenetre = new FenetreDeJeu("Moha");
         fenetre.setVisible(true);
     }
 }
