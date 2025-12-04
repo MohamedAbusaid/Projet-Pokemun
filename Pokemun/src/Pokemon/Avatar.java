@@ -30,11 +30,6 @@ public class Avatar {
     private int etapeAnimation = 0; 
     private long dernierChangement = 0; 
     
-    // --- A AJOUTER : VARIABLES DU SAUT ---
-    private boolean enSaut = false;       // Est-on en l'air ?
-    private long debutSaut = 0;           // Chronomètre
-    private final int DUREE_SAUT = 550;   // Durée allongée pour bien voir l'effet
-    
     // Vitesses ajustées
     private final double VITESSE_LAT = 0.000015; 
     private final double VITESSE_LON = 0.000060; 
@@ -125,22 +120,16 @@ public class Avatar {
         }
     }
     
-public void miseAJour() {
+    public void miseAJour() {
+        // 1. Sécurité : On ne bouge pas si on n'a pas encore chargé notre position depuis la BDD
         if (!positionInitialisee) return; 
 
-        // 1. GESTION DU CHRONO SAUT
-        // Si on est en l'air, on vérifie si c'est fini
-        if (enSaut) {
-            if (System.currentTimeMillis() - debutSaut > DUREE_SAUT) {
-                enSaut = false; // Atterrissage !
-            }
-        }
-
+        // 2. On prépare la prochaine position (Hypothèse)
         double futurLat = maLatitude;
         double futurLon = maLongitude;
         boolean enMouvement = false;
 
-        // Gestion des touches (inchangé)
+        // 3. On regarde les touches appuyées
         if (toucheHaut) {
             futurLat += VITESSE_LAT;
             direction = 0;
@@ -159,7 +148,7 @@ public void miseAJour() {
             enMouvement = true;
         }
 
-        // Animation des jambes (inchangé)
+        // 4. Gestion de l'animation (les jambes qui bougent)
         if (enMouvement) {
             if (System.currentTimeMillis() - dernierChangement > 200) {
                 etapeAnimation = (etapeAnimation + 1) % 2;
@@ -170,39 +159,34 @@ public void miseAJour() {
         }
 
         // =========================================================
-        // BLOC DE COLLISION ET SAUT
+        // C'EST ICI QUE TU COLLES TON BLOC DE COLLISION
         // =========================================================
         if (enMouvement) {
-            // NOTE : On passe 'this.direction' pour les sens uniques
+            // A. On demande à la carte : "Est-ce que je peux aller là ?"
             if (laCarte.estTraversable(futurLat, futurLon, this.direction)) {
                 
-                // On valide le déplacement
+                // OUI : On valide le déplacement
                 this.maLatitude = futurLat;
                 this.maLongitude = futurLon;
+                
+                // On sauvegarde en BDD (pour que les autres nous voient bouger)
                 sauvegarderPositionBDD();
 
-                // On regarde sur quoi on a marché
+                // B. On vérifie sur QUOI on marche (Interaction)
                 int typeSol = laCarte.getTuileID(futurLat, futurLon);
-
-                // --- DÉCLENCHEUR DU SAUT ---
-                // Si c'est un rebord (3, 31, 32) et qu'on ne saute pas déjà
-                if ((typeSol == 3 || typeSol == 31 || typeSol == 32) && !enSaut) {
-                    enSaut = true;
-                    debutSaut = System.currentTimeMillis();
-                    etapeAnimation = 1; // On fige les jambes pour le style
-                }
-                // ---------------------------
                 
-                // Hautes herbes (inchangé)
+                // Exemple : Si ID 1 ou 2 = Hautes herbes
                 if (typeSol == 1 || typeSol == 2) {
+                     // 1 chance sur 500 à chaque pas (ajuste le 0.002 selon tes goûts)
                      if (Math.random() < 0.002) {
                          System.out.println("!!! Un Pokémon sauvage apparaît !!!");
+                         // C'est ici que tu lanceras plus tard : new FenetreCombat();
                      }
                 }
 
             } else {
-                // Bloqué par un mur
-                // System.out.println("Bloqué !");
+                // NON : Mur -> On ne change pas maLatitude/maLongitude
+                System.out.println("Bloqué par un obstacle (ID: " + laCarte.getTuileID(futurLat, futurLon) + ")");
             }
         }
     }
@@ -265,33 +249,16 @@ public void miseAJour() {
                         case 2: col = 1; lig = 0 + etapeAnimation; break; 
                         case 3: col = 1; lig = 2 + etapeAnimation; break; 
                     }
-imgAffiche = sprites[col][lig];
-            }
-
-            if (imgAffiche != null) {
-                // --- MODIFICATION : EFFET ZOOM SAUT ---
-                int taille = 32; // Taille normale
-                int offset = 0;  // Pas de décalage
-                
-                if (enSaut) {
-                    taille = 54;  // ZOOM XXL (x1.7 environ)
-                    offset = -11; // On remonte et décale à gauche pour centrer le gros sprite
+                    imgAffiche = sprites[col][lig];
                 }
 
-                // On dessine avec les variables calculées
-                contexte.drawImage(imgAffiche, 
-                        (x - 16) + offset, 
-                        (y - 16) + offset, 
-                        taille,            
-                        taille,            
-                        null);
-                // --------------------------------------
-
-            } else {
-                // Fallback (inchangé)
-                contexte.setColor(couleurJoueur);
-                contexte.fillOval(x - 10, y - 10, 20, 20);
-            }
+                if (imgAffiche != null) {
+                    contexte.drawImage(imgAffiche, x - 16, y - 16, 32, 32, null);
+                } else {
+                    // Fallback avec la bonne couleur
+                    contexte.setColor(couleurJoueur);
+                    contexte.fillOval(x - 10, y - 10, 20, 20);
+                }
                 
                 // --- AFFICHAGE PSEUDO CENTRÉ AVEC LA BONNE COULEUR ---
                 contexte.setColor(couleurJoueur); // Rouge pour Dresseur, Jaune pour Pokemon

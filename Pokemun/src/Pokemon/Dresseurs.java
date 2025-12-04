@@ -10,6 +10,7 @@ import java.sql.SQLException;
 import java.util.HashMap;
 import javax.imageio.ImageIO;
 import outils.SingletonJDBC;
+import java.io.IOException;
 
 public class Dresseurs {
 
@@ -24,6 +25,9 @@ public class Dresseurs {
 
     // Mémoire pour l'animation
     private HashMap<String, EtatJoueur> memoire = new HashMap<>();
+    
+    // Image de la µ-ball
+    private BufferedImage muBallSprite;
 
     public Dresseurs(Carte laCarte, String pseudoLocal) {
         this.laCarte = laCarte;
@@ -38,6 +42,14 @@ public class Dresseurs {
         // Assurez-vous que ces images sont bien des planches 2x4 (64x128px)
         chargerPlanche(spritesCapture, "Drascore", "/resources/Drascore_Capture.png");
         chargerPlanche(spritesCapture, "Libegon", "/resources/Libegon_Capture.png");
+        
+        // 3. Chargement de la µ-ball
+        try {
+            // Assurez-vous que le chemin d'accès à 'mu_ball.png' est correct
+            this.muBallSprite = ImageIO.read(getClass().getResource("/resources/mu_ball.png"));
+        } catch (IOException e) {
+            System.err.println("Erreur chargement Sprite μ-ball : " + e.getMessage());
+        }
     }
     
     // Méthode générique pour charger et découper une planche dans une Map donnée
@@ -62,7 +74,7 @@ public class Dresseurs {
 
     public void miseAJour() { }
 
-public void rendu(Graphics2D contexte) {
+    public void rendu(Graphics2D contexte) {
         try {
             Connection connexion = SingletonJDBC.getInstance().getConnection();
             PreparedStatement requete = connexion.prepareStatement("SELECT pseudo, latitude, longitude, role, statut FROM joueurs;");
@@ -70,8 +82,9 @@ public void rendu(Graphics2D contexte) {
 
             while (resultat.next()) {
                 String pseudo = resultat.getString("pseudo");
-                if (pseudo.equals(this.pseudoLocal)) continue; // On ne s'affiche pas soi-même
-                
+                // Ignorer le joueur local, car il est rendu par la classe Avatar
+                if (pseudo.equals(this.pseudoLocal)) continue; 
+
                 String statut = resultat.getString("statut");
                 boolean estCapture = "CAPTURE".equals(statut);
 
@@ -82,17 +95,7 @@ public void rendu(Graphics2D contexte) {
                 int x = laCarte.longitudeEnPixel(longitude);
                 int y = laCarte.latitudeEnPixel(latitude);
 
-                // =========================================================
-                // 1. DÉTECTION DU SAUT (L'ASTUCE EST ICI)
-                // =========================================================
-                // On regarde sur quelle tuile se trouve ce joueur
-                int idTuile = laCarte.getTuileID(latitude, longitude);
-                
-                // Si c'est un rebord, on considère qu'il est en train de sauter
-                boolean enSaut = (idTuile == 3 || idTuile == 31 || idTuile == 32);
-                // =========================================================
-
-                // --- CALCUL ANIMATION (Mouvement fluide) ---
+                // --- CALCUL ANIMATION (Identique pour libre ou capturé) ---
                 EtatJoueur etat = memoire.get(pseudo);
                 if (etat == null) {
                     etat = new EtatJoueur(x, y);
@@ -100,8 +103,6 @@ public void rendu(Graphics2D contexte) {
                 }
                 int direction = etat.direction;
                 boolean bouge = false;
-                
-                // Détection du mouvement pour animer les jambes
                 if (x > etat.lastX) { direction = 3; bouge = true; }
                 else if (x < etat.lastX) { direction = 2; bouge = true; }
                 else if (y > etat.lastY) { direction = 1; bouge = true; }
@@ -116,64 +117,75 @@ public void rendu(Graphics2D contexte) {
                 etat.lastX = x;
                 etat.lastY = y;
 
-                // --- CHOIX DE LA PLANCHE ---
+                // --- CHOIX DE LA PLANCHE À DESSINER ---
                 BufferedImage[][] plancheActive = null;
+
                 if (estCapture) {
                     plancheActive = spritesCapture.get(role);
                 } else {
                     plancheActive = sprites.get(role);
                 }
-                
-                // --- DESSIN AVEC EFFET ZOOM ---
+
+                // --- DESSIN DE L'ANIMATION ---
                 if (plancheActive != null) {
                     int col = 0; 
                     int lig = 0;
-                    
-                    // Sélection du sprite de base
+                    // Sélection de la bonne case (Haut/Bas/Gauche/Droite)
                     switch(direction) {
-                        case 0: col = 0; lig = 0 + etat.etapeAnimation; break;
-                        case 1: col = 0; lig = 2 + etat.etapeAnimation; break;
-                        case 2: col = 1; lig = 0 + etat.etapeAnimation; break;
-                        case 3: col = 1; lig = 2 + etat.etapeAnimation; break;
+                        case 0: col = 0; lig = 0 + etat.etapeAnimation; break; // Haut
+                        case 1: col = 0; lig = 2 + etat.etapeAnimation; break; // Bas
+                        case 2: col = 1; lig = 0 + etat.etapeAnimation; break; // Gauche
+                        case 3: col = 1; lig = 2 + etat.etapeAnimation; break; // Droite
                     }
-                    
-                    // =====================================================
-                    // 2. APPLICATION DE LA TAILLE XXL
-                    // =====================================================
-                    int taille = 32; // Taille normale
-                    int offset = 0;  // Décalage normal
-                    
-                    if (enSaut) {
-                        taille = 54;  // ZOOM XXL (Même taille que toi)
-                        offset = -11; // Même décalage que toi
-                        
-                        // Petit bonus visuel : Quand ils sautent, on fige les jambes
-                        // pour ne pas qu'ils aient l'air de courir en l'air
-                        if (direction == 0 || direction == 1) lig = 2; 
-                    }
-                    // =====================================================
-
-                    contexte.drawImage(plancheActive[col][lig], 
-                        (x - 16) + offset, 
-                        (y - 16) + offset, 
-                        taille,            
-                        taille,            
-                        null);
-                        
+                    contexte.drawImage(plancheActive[col][lig], x - 16, y - 16, 32, 32, null);
                 } else {
-                    // Fallback (Carré gris si pas d'image)
+                    // Fallback
                     contexte.setColor(Color.GRAY);
                     contexte.fillOval(x - 5, y - 5, 10, 10);
                 }
-                
-                // Affichage du Pseudo
+
+                // Affichage Pseudo
                 if (estCapture) contexte.setColor(Color.RED);
                 else contexte.setColor(Color.WHITE);
-                
+
                 int largeurTexte = contexte.getFontMetrics().stringWidth(pseudo);
                 contexte.drawString(pseudo, x - (largeurTexte / 2), y - 20);
             }
             requete.close();
+
+            // --- Rendu des Attaques (μ-balls)---
+            PreparedStatement reqAttaques = connexion.prepareStatement(
+                "SELECT lat_actuelle, lon_actuelle FROM attaques WHERE type = 'MUBALL';"
+            );
+            ResultSet resultatAttaques = reqAttaques.executeQuery();
+
+            // On vérifie si le sprite de la µ-ball a été chargé
+            if (muBallSprite != null) {
+                int taille = 8; // Taille du sprite dessiné
+
+                while (resultatAttaques.next()) {
+                    double latitude = resultatAttaques.getDouble("lat_actuelle");
+                    double longitude = resultatAttaques.getDouble("lon_actuelle");
+
+                    int x = laCarte.longitudeEnPixel(longitude);
+                    int y = laCarte.latitudeEnPixel(latitude);
+
+                    // Dessiner l'image de la µ-ball
+                    contexte.drawImage(muBallSprite, x - taille/2, y - taille/2, taille, taille, null);
+                }
+            } else {
+                // Fallback (pour le debug, au cas où l'image n'est pas chargée)
+                contexte.setColor(Color.CYAN); 
+                while (resultatAttaques.next()) {
+                    double latitude = resultatAttaques.getDouble("lat_actuelle");
+                    double longitude = resultatAttaques.getDouble("lon_actuelle");
+                    int x = laCarte.longitudeEnPixel(longitude);
+                    int y = laCarte.latitudeEnPixel(latitude);
+                    contexte.fillOval(x - 5, y - 5, 10, 10);
+                }
+            }
+            reqAttaques.close(); 
+
         } catch (SQLException ex) { ex.printStackTrace(); }
     }
     
