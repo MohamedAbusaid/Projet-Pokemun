@@ -1,4 +1,4 @@
-package pokemon;
+package Pokemon;
 
 import java.awt.Color;
 import java.awt.FontMetrics;
@@ -20,6 +20,9 @@ public class Avatar {
     private String pseudo;
     private String role; 
     protected Carte laCarte;
+    private double maLatitude;
+    private double maLongitude;
+    private boolean positionInitialisee = false; // Pour ne pas bouger avant d'avoir chargé la BDD
 
     // --- ANIMATION ---
     private BufferedImage[][] sprites; // Tableau 2D [colonne][ligne]
@@ -36,6 +39,7 @@ public class Avatar {
         this.pseudo = pseudoJoueur; 
         
         recupererRole(); // Récupère "Dresseur", "Drascore", etc.
+        chargerPositionInitiale();
 
         // Chargement de la planche correspondante
         try {
@@ -79,30 +83,72 @@ public class Avatar {
         } catch (SQLException ex) { ex.printStackTrace(); }
     }
 
+    private void chargerPositionInitiale() {
+        try {
+            Connection con = SingletonJDBC.getInstance().getConnection();
+            PreparedStatement req = con.prepareStatement("SELECT latitude, longitude FROM joueurs WHERE pseudo = ?");
+            req.setString(1, this.pseudo);
+            ResultSet res = req.executeQuery();
+            
+            if (res.next()) {
+                this.maLatitude = res.getDouble("latitude");
+                this.maLongitude = res.getDouble("longitude");
+                this.positionInitialisee = true; // C'est bon, on peut bouger !
+                System.out.println("Position chargée : " + maLatitude + ", " + maLongitude);
+            }
+            req.close();
+        } catch (SQLException ex) {
+            ex.printStackTrace();
+        }
+    }
+    
+    private void sauvegarderPositionBDD() {
+        try {
+            Connection con = SingletonJDBC.getInstance().getConnection();
+            // On met à jour la position du joueur
+            PreparedStatement req = con.prepareStatement(
+                "UPDATE joueurs SET latitude = ?, longitude = ? WHERE pseudo = ?"
+            );
+            req.setDouble(1, this.maLatitude);
+            req.setDouble(2, this.maLongitude);
+            req.setString(3, this.pseudo);
+            
+            req.executeUpdate();
+            req.close();
+        } catch (SQLException ex) {
+            ex.printStackTrace();
+        }
+    }
+    
     public void miseAJour() {
-        double deltaLat = 0;
-        double deltaLon = 0;
+        // 1. Sécurité : On ne bouge pas si on n'a pas encore chargé notre position depuis la BDD
+        if (!positionInitialisee) return; 
+
+        // 2. On prépare la prochaine position (Hypothèse)
+        double futurLat = maLatitude;
+        double futurLon = maLongitude;
         boolean enMouvement = false;
 
+        // 3. On regarde les touches appuyées
         if (toucheHaut) {
-            deltaLat += VITESSE_LAT;
+            futurLat += VITESSE_LAT;
             direction = 0;
             enMouvement = true;
         } else if (toucheBas) {
-            deltaLat -= VITESSE_LAT;
+            futurLat -= VITESSE_LAT;
             direction = 1;
             enMouvement = true;
         } else if (toucheGauche) {
-            deltaLon -= VITESSE_LON;
+            futurLon -= VITESSE_LON;
             direction = 2;
             enMouvement = true;
         } else if (toucheDroite) {
-            deltaLon += VITESSE_LON;
+            futurLon += VITESSE_LON;
             direction = 3;
             enMouvement = true;
         }
 
-        // Animation
+        // 4. Gestion de l'animation (les jambes qui bougent)
         if (enMouvement) {
             if (System.currentTimeMillis() - dernierChangement > 200) {
                 etapeAnimation = (etapeAnimation + 1) % 2;
@@ -112,21 +158,36 @@ public class Avatar {
             etapeAnimation = 0; 
         }
 
-        // Envoi BDD (Table joueurs)
-        if (deltaLat != 0 || deltaLon != 0) {
-            try {
-                Connection connexion = SingletonJDBC.getInstance().getConnection();
-                PreparedStatement req = connexion.prepareStatement(
-                        "UPDATE joueurs SET latitude = latitude + ?, longitude = longitude + ?, derniereConnexion = NOW() WHERE pseudo = ?");
-                req.setDouble(1, deltaLat);
-                req.setDouble(2, deltaLon);
-                req.setString(3, this.pseudo);
-                req.executeUpdate();
-                req.close();
+        // =========================================================
+        // C'EST ICI QUE TU COLLES TON BLOC DE COLLISION
+        // =========================================================
+        if (enMouvement) {
+            // A. On demande à la carte : "Est-ce que je peux aller là ?"
+            if (laCarte.estTraversable(futurLat, futurLon, this.direction)) {
                 
-                if ("Dresseur".equals(this.role)) tenterCapture(connexion);
+                // OUI : On valide le déplacement
+                this.maLatitude = futurLat;
+                this.maLongitude = futurLon;
                 
-            } catch (SQLException ex) { ex.printStackTrace(); }
+                // On sauvegarde en BDD (pour que les autres nous voient bouger)
+                sauvegarderPositionBDD();
+
+                // B. On vérifie sur QUOI on marche (Interaction)
+                int typeSol = laCarte.getTuileID(futurLat, futurLon);
+                
+                // Exemple : Si ID 1 ou 2 = Hautes herbes
+                if (typeSol == 1 || typeSol == 2) {
+                     // 1 chance sur 500 à chaque pas (ajuste le 0.002 selon tes goûts)
+                     if (Math.random() < 0.002) {
+                         System.out.println("!!! Un Pokémon sauvage apparaît !!!");
+                         // C'est ici que tu lanceras plus tard : new FenetreCombat();
+                     }
+                }
+
+            } else {
+                // NON : Mur -> On ne change pas maLatitude/maLongitude
+                System.out.println("Bloqué par un obstacle (ID: " + laCarte.getTuileID(futurLat, futurLon) + ")");
+            }
         }
     }
     
