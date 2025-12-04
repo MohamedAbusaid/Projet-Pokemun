@@ -277,4 +277,54 @@ public class Avatar {
     public void setToucheBas(boolean etat) { this.toucheBas = etat; }
     public void setToucheGauche(boolean etat) { this.toucheGauche = etat; }
     public void setToucheDroite(boolean etat) { this.toucheDroite = etat; }
+    
+    public String getRole() { 
+        return role;
+    }
+
+    /**
+     * Lance une μ-ball si le joueur est le Dresseur.
+     * Insère la position de départ (dresseur) et la cible (clic) dans la BDD.
+     * @param xPixel La coordonnée X du clic.
+     * @param yPixel La coordonnée Y du clic.
+     */
+    public void lancerMuball(int xPixel, int yPixel) {
+        if (!"Dresseur".equalsIgnoreCase(this.role)) return; // Seul le dresseur peut attaquer
+
+        try {
+            double latCible = this.laCarte.pixelEnLatitude(yPixel);
+            double lonCible = this.laCarte.pixelEnLongitude(xPixel);
+
+            Connection connexion = SingletonJDBC.getInstance().getConnection();
+
+            // 1. Récupérer la position de DÉPART (position actuelle du dresseur)
+            double latDepart = 0.0, lonDepart = 0.0;
+            try (PreparedStatement reqPos = connexion.prepareStatement(
+                    "SELECT latitude, longitude FROM joueurs WHERE pseudo = ?")) {
+                reqPos.setString(1, pseudo);
+                try (ResultSet pos = reqPos.executeQuery()) {
+                    if (pos.next()) {
+                        latDepart = pos.getDouble("latitude");
+                        lonDepart = pos.getDouble("longitude");
+                    }
+                }
+            }
+
+            // 2. Insérer la nouvelle attaque (µ-ball)
+            try (PreparedStatement reqInsertAttaque = connexion.prepareStatement(
+                "INSERT INTO attaques (attaquant, type, lat_actuelle, lon_actuelle, lat_cible, lon_cible) VALUES (?, 'MUBALL', ?, ?, ?, ?)"
+            )) {
+                reqInsertAttaque.setString(1, pseudo);
+                reqInsertAttaque.setDouble(2, latDepart);   // Position ACTUELLE (départ)
+                reqInsertAttaque.setDouble(3, lonDepart);
+                reqInsertAttaque.setDouble(4, latCible);    // Position CIBLE (clic)
+                reqInsertAttaque.setDouble(5, lonCible);
+
+                reqInsertAttaque.executeUpdate();
+                System.out.println(pseudo + " a lancé une μ-ball vers (" + lonCible + ", " + latCible + ")");
+            }
+        } catch (SQLException ex) {
+            ex.printStackTrace();
+        }
+    }
 }

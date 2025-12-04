@@ -122,16 +122,41 @@ public class Carte {
         return true;
     }
 
-    public int longitudeEnPixel(double lon) {
-        double largeurGeo = LONGITUDE_MAX - LONGITUDE_MIN;
-        double ratio = (lon - LONGITUDE_MIN) / largeurGeo;
-        return (int) (ratio * (NB_COLONNES * LARGEUR_TUILE));
+    public int longitudeEnPixel(double longitude) {
+        int x = (int) (decor.getWidth() * (longitude - LONGITUDE_MIN) / (LONGITUDE_MAX - LONGITUDE_MIN));
+        if (x < 5) {
+            x = 5;
+        }
+        if (x > decor.getWidth() - 5) {
+            x = decor.getWidth() - 5;
+        }
+        return x;
     }
 
-    public int latitudeEnPixel(double lat) {
-        double hauteurGeo = LATITUDE_MAX - LATITUDE_MIN;
-        double ratio = (LATITUDE_MAX - lat) / hauteurGeo; 
-        return (int) (ratio * (NB_LIGNES * HAUTEUR_TUILE));
+    public int latitudeEnPixel(double latitude) {
+        int y = decor.getHeight() - (int) (decor.getHeight() * (latitude - LATITUDE_MIN) / (LATITUDE_MAX - LATITUDE_MIN));
+        if (y < 5) {
+            y = 5;
+        }
+        if (y > decor.getHeight() - 5) {
+            y = decor.getHeight() - 5;
+        }
+        return y;
+    }
+    
+    public double pixelEnLongitude(int x) {
+        double largeurDecor = this.decor.getWidth();
+        double rangeLon = LONGITUDE_MAX - LONGITUDE_MIN;
+        // Inverse de longitudeEnPixel
+        return LONGITUDE_MIN + ((double) x / largeurDecor) * rangeLon;
+    }
+
+    public double pixelEnLatitude(int y) {
+        double hauteurDecor = this.decor.getHeight();
+        double rangeLat = LATITUDE_MAX - LATITUDE_MIN;
+        // Inverse de latitudeEnPixel, en tenant compte de l'inversion de l'axe Y
+        double yInverse = hauteurDecor - (double) y;
+        return LATITUDE_MIN + (yInverse / hauteurDecor) * rangeLat;
     }
 
     public void miseAJour() { }
