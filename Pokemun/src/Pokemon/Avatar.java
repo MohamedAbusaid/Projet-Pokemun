@@ -94,7 +94,7 @@ public class Avatar {
                 this.maLatitude = res.getDouble("latitude");
                 this.maLongitude = res.getDouble("longitude");
                 this.positionInitialisee = true; // C'est bon, on peut bouger !
-                System.out.println("Position chargée : " + maLatitude + ", " + maLongitude);
+                System.out.println("Position chargee : " + maLatitude + ", " + maLongitude);
             }
             req.close();
         } catch (SQLException ex) {
@@ -179,15 +179,12 @@ public class Avatar {
                 if (typeSol == 1 || typeSol == 2) {
                      // 1 chance sur 500 à chaque pas (ajuste le 0.002 selon tes goûts)
                      if (Math.random() < 0.002) {
-                         System.out.println("!!! Un Pokémon sauvage apparaît !!!");
+                         System.out.println("!!! Un Pokemon sauvage apparaît !!!");
                          // C'est ici que tu lanceras plus tard : new FenetreCombat();
                      }
                 }
 
-            } else {
-                // NON : Mur -> On ne change pas maLatitude/maLongitude
-                System.out.println("Bloqué par un obstacle (ID: " + laCarte.getTuileID(futurLat, futurLon) + ")");
-            }
+            } 
         }
     }
     
@@ -289,15 +286,16 @@ public class Avatar {
      * @param yPixel La coordonnée Y du clic.
      */
     public void lancerMuball(int xPixel, int yPixel) {
-        if (!"Dresseur".equalsIgnoreCase(this.role)) return; // Seul le dresseur peut attaquer
+        if (!"Dresseur".equalsIgnoreCase(this.role)) return;
 
         try {
-            double latCible = this.laCarte.pixelEnLatitude(yPixel);
-            double lonCible = this.laCarte.pixelEnLongitude(xPixel);
+            // Position du clic (Direction)
+            double latClic = this.laCarte.pixelEnLatitude(yPixel);
+            double lonClic = this.laCarte.pixelEnLongitude(xPixel);
 
             Connection connexion = SingletonJDBC.getInstance().getConnection();
 
-            // 1. Récupérer la position de DÉPART (position actuelle du dresseur)
+            // 1. Récupérer ma position de départ
             double latDepart = 0.0, lonDepart = 0.0;
             try (PreparedStatement reqPos = connexion.prepareStatement(
                     "SELECT latitude, longitude FROM joueurs WHERE pseudo = ?")) {
@@ -310,18 +308,30 @@ public class Avatar {
                 }
             }
 
-            // 2. Insérer la nouvelle attaque (µ-ball)
-            try (PreparedStatement reqInsertAttaque = connexion.prepareStatement(
+            // --- CALCUL DU VECTEUR DIRECTEUR ---
+            double deltaLat = latClic - latDepart;
+            double deltaLon = lonClic - lonDepart;
+            double distance = Math.sqrt(deltaLat * deltaLat + deltaLon * deltaLon);
+
+            // Si on clique sur soi-même, on ne fait rien (division par zéro)
+            if (distance == 0) return;
+
+            // On projette la cible très loin (ex: 10.0 degrés plus loin, soit hors map)
+            // Cela garantit que la balle ne s'arrêtera jamais avant de toucher un mur
+            double facteur = 10.0 / distance; 
+            double latFinale = latDepart + (deltaLat * facteur);
+            double lonFinale = lonDepart + (deltaLon * facteur);
+
+            // 2. Insérer l'attaque avec la CIBLE LOINTAINE
+            try (PreparedStatement reqInsert = connexion.prepareStatement(
                 "INSERT INTO attaques (attaquant, type, lat_actuelle, lon_actuelle, lat_cible, lon_cible) VALUES (?, 'MUBALL', ?, ?, ?, ?)"
             )) {
-                reqInsertAttaque.setString(1, pseudo);
-                reqInsertAttaque.setDouble(2, latDepart);   // Position ACTUELLE (départ)
-                reqInsertAttaque.setDouble(3, lonDepart);
-                reqInsertAttaque.setDouble(4, latCible);    // Position CIBLE (clic)
-                reqInsertAttaque.setDouble(5, lonCible);
-
-                reqInsertAttaque.executeUpdate();
-                System.out.println(pseudo + " a lancé une μ-ball vers (" + lonCible + ", " + latCible + ")");
+                reqInsert.setString(1, pseudo);
+                reqInsert.setDouble(2, latDepart);
+                reqInsert.setDouble(3, lonDepart);
+                reqInsert.setDouble(4, latFinale); // On vise l'horizon !
+                reqInsert.setDouble(5, lonFinale);
+                reqInsert.executeUpdate();
             }
         } catch (SQLException ex) {
             ex.printStackTrace();

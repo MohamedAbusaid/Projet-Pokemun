@@ -67,12 +67,10 @@ public class Carte {
         try {
             this.decor = ImageIO.read(getClass().getResource("/resources/Foret_de_Rambouillet.png"));
             
-            // --- MODIFICATION ICI ---
             // On garde les murs classiques
             murs.add(28); murs.add(29); murs.add(30); 
             
             // On définit les sauts (Ledgers)
-            // ATTENTION : J'ai retiré 31 et 32 de la ligne 'murs' au dessus !
             sauts.add(3); 
             sauts.add(31); 
             sauts.add(32);

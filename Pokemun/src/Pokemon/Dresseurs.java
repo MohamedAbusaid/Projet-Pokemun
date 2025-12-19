@@ -48,7 +48,7 @@ public class Dresseurs {
             // Assurez-vous que le chemin d'accès à 'mu_ball.png' est correct
             this.muBallSprite = ImageIO.read(getClass().getResource("/resources/mu_ball.png"));
         } catch (IOException e) {
-            System.err.println("Erreur chargement Sprite μ-ball : " + e.getMessage());
+            System.err.println("Erreur chargement Sprite mu-ball : " + e.getMessage());
         }
     }
     

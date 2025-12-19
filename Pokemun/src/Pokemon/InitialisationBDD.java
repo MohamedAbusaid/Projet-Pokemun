@@ -50,7 +50,7 @@ public class InitialisationBDD {
             statement.executeUpdate("INSERT INTO pokemons (espece, latitude, longitude, visible, proprietaire) VALUES ('Cizayox', 47.250983, 5.995654, 1, NULL)");
             statement.executeUpdate("INSERT INTO pokemons (espece, latitude, longitude, visible, proprietaire) VALUES ('Scarabrute', 47.251500, 5.993000, 1, NULL)");
 
-            System.out.println("Base initialisée ! Rôles mis à jour : Dresseur, Drascore, Libegon.");
+            System.out.println("Base initialisee ! Rôles mis à jour : Dresseur, Drascore, Libegon.");
             
             // 4. Affichage de vérification
             System.out.println("\n========================================");
@@ -77,7 +77,7 @@ public class InitialisationBDD {
             connexion.close();
 
         } catch (ClassNotFoundException ex) {
-            System.err.println("ERREUR GRAVE : Pilote MariaDB non trouvé.");
+            System.err.println("ERREUR GRAVE : Pilote MariaDB non trouve.");
             ex.printStackTrace();
         } catch (SQLException ex) {
             ex.printStackTrace();

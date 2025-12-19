@@ -87,75 +87,102 @@ public class Pokemons {
             while (attaques.next()) {
                 int idAttaque = attaques.getInt("id");
                 String attaquant = attaques.getString("attaquant"); 
-                double latA = attaques.getDouble("lat_actuelle");
+                double latA = attaques.getDouble("lat_actuelle"); // Position ACTUELLE de la balle
                 double lonA = attaques.getDouble("lon_actuelle");
                 double latC = attaques.getDouble("lat_cible");
                 double lonC = attaques.getDouble("lon_cible");
 
-                double distLat = latC - latA;
-                double distLon = lonC - lonA;
-                double distanceTotale = Math.sqrt(distLat * distLat + distLon * distLon);
-            
-                // --- GESTION DE LA FIN DE TRAJECTOIRE / COLLISION ---
-                if (distanceTotale < VITESSE_MUBALL) {
-                    // 1. Tenter de CAPTURER un JOUEUR (Insecte)
-                    PreparedStatement reqCaptureJoueur = connexion.prepareStatement(
-                        "UPDATE joueurs SET statut = 'CAPTURE' " +
-                        "WHERE role != 'Dresseur' AND statut = 'LIBRE' " +
-                        "AND ABS(latitude - ?) < ? AND ABS(longitude - ?) < ?"
-                    );
-                    reqCaptureJoueur.setDouble(1, latC);
-                    reqCaptureJoueur.setDouble(2, RAYON_CAPTURE);
-                    reqCaptureJoueur.setDouble(3, lonC);
-                    reqCaptureJoueur.setDouble(4, RAYON_CAPTURE);
-                    int capturesJoueur = reqCaptureJoueur.executeUpdate();
-                    if (capturesJoueur > 0) System.out.println("🎉 CAPTURE JOUEUR RÉUSSIE par μ-ball !");
-                    reqCaptureJoueur.close();
+                // --- 1. GESTION DES CAPTURES (En vol) ---
+                // On vérifie si la balle touche quelqu'un ICI et MAINTENANT
+                boolean impact = false;
 
-                    // 2. Tenter de CAPTURER un POKEMON (PNJ) : Assignation du propriétaire
-                    PreparedStatement reqCapturePNJ = connexion.prepareStatement(
-                        "UPDATE pokemons SET proprietaire = ? " + // Assignation du propriétaire
+                // A. Capture JOUEUR
+                PreparedStatement reqCaptJoueur = connexion.prepareStatement(
+                    "UPDATE joueurs SET statut = 'CAPTURE' " +
+                    "WHERE role != 'Dresseur' AND statut = 'LIBRE' " +
+                    "AND ABS(latitude - ?) < ? AND ABS(longitude - ?) < ?"
+                );
+                reqCaptJoueur.setDouble(1, latA); // Check autour de la balle
+                reqCaptJoueur.setDouble(2, RAYON_CAPTURE);
+                reqCaptJoueur.setDouble(3, lonA);
+                reqCaptJoueur.setDouble(4, RAYON_CAPTURE);
+                if (reqCaptJoueur.executeUpdate() > 0) {
+                    System.out.println("Joueur touche en vol !");
+                    impact = true;
+                }
+                reqCaptJoueur.close();
+
+                // B. Capture PNJ
+                if (!impact) { // Si on n'a pas déjà touché un joueur
+                    PreparedStatement reqCaptPNJ = connexion.prepareStatement(
+                        "UPDATE pokemons SET proprietaire = ? " +
                         "WHERE proprietaire IS NULL " + 
                         "AND ABS(latitude - ?) < ? AND ABS(longitude - ?) < ?"
                     );
-                    reqCapturePNJ.setString(1, attaquant); 
-                    reqCapturePNJ.setDouble(2, latC);
-                    reqCapturePNJ.setDouble(3, RAYON_CAPTURE);
-                    reqCapturePNJ.setDouble(4, lonC);
-                    reqCapturePNJ.setDouble(5, RAYON_CAPTURE);
-                    int capturesPNJ = reqCapturePNJ.executeUpdate();
-                    if (capturesPNJ > 0) System.out.println("🎉 CAPTURE PNJ RÉUSSIE par μ-ball !");
-                    reqCapturePNJ.close();
-                
-                    // Supprimer la μ-ball
-                    PreparedStatement reqDeleteAtt = connexion.prepareStatement("DELETE FROM attaques WHERE id = ?");
-                    reqDeleteAtt.setInt(1, idAttaque);
-                    reqDeleteAtt.executeUpdate();
-                    reqDeleteAtt.close();
-                
-                    continue; 
+                    reqCaptPNJ.setString(1, attaquant);
+                    reqCaptPNJ.setDouble(2, latA);
+                    reqCaptPNJ.setDouble(3, RAYON_CAPTURE);
+                    reqCaptPNJ.setDouble(4, lonA);
+                    reqCaptPNJ.setDouble(5, RAYON_CAPTURE);
+                    if (reqCaptPNJ.executeUpdate() > 0) {
+                        System.out.println("PNJ capture en vol !");
+                        impact = true;
+                    }
+                    reqCaptPNJ.close();
                 }
 
-                // --- DÉPLACEMENT DU PROJECTILE ---
+                // SI IMPACT : On supprime la balle et on passe à la suivante
+                if (impact) {
+                    PreparedStatement del = connexion.prepareStatement("DELETE FROM attaques WHERE id = ?");
+                    del.setInt(1, idAttaque);
+                    del.executeUpdate();
+                    del.close();
+                    continue;
+                }
+
+                // --- 2. CALCUL DU DÉPLACEMENT ---
+                double distLat = latC - latA;
+                double distLon = lonC - lonA;
+                double distanceTotale = Math.sqrt(distLat * distLat + distLon * distLon);
+
+                // Sécurité : si la balle sort de la map (très loin), on la supprime
+                if (distanceTotale < VITESSE_MUBALL) {
+                    PreparedStatement del = connexion.prepareStatement("DELETE FROM attaques WHERE id = ?");
+                    del.setInt(1, idAttaque);
+                    del.executeUpdate();
+                    del.close();
+                    continue;
+                }
+
                 double pasLat = (distLat / distanceTotale) * VITESSE_MUBALL;
                 double pasLon = (distLon / distanceTotale) * VITESSE_MUBALL;
-            
                 double nouvelleLat = latA + pasLat;
                 double nouvelleLon = lonA + pasLon;
-            
-                // Mettre à jour la position actuelle de la μ-ball dans la BDD
-                PreparedStatement reqUpdateAtt = connexion.prepareStatement(
+
+                // --- 3. COLLISION DÉCOR (Arbres) ---
+                int idTuile = laCarte.getTuileID(nouvelleLat, nouvelleLon);
+
+                // IDs murs: 28, 29, 30. Hors map: -1
+                if (idTuile == -1 || idTuile == 28 || idTuile == 29 || idTuile == 30) {
+                    // Boum dans un arbre
+                    PreparedStatement del = connexion.prepareStatement("DELETE FROM attaques WHERE id = ?");
+                    del.setInt(1, idAttaque);
+                    del.executeUpdate();
+                    del.close();
+                    continue;
+                }
+
+                // --- 4. MISE À JOUR POSITION ---
+                PreparedStatement up = connexion.prepareStatement(
                     "UPDATE attaques SET lat_actuelle = ?, lon_actuelle = ? WHERE id = ?"
                 );
-                reqUpdateAtt.setDouble(1, nouvelleLat);
-                reqUpdateAtt.setDouble(2, nouvelleLon);
-                reqUpdateAtt.setInt(3, idAttaque);
-                reqUpdateAtt.executeUpdate();
-                reqUpdateAtt.close();
+                up.setDouble(1, nouvelleLat);
+                up.setDouble(2, nouvelleLon);
+                up.setInt(3, idAttaque);
+                up.executeUpdate();
+                up.close();
             }
-
             reqSelectAtt.close();
-
         } catch (SQLException ex) { ex.printStackTrace(); }
     }
     
@@ -163,14 +190,11 @@ public class Pokemons {
     public void rendu(Graphics2D contexte) {
         try {
             Connection connexion = SingletonJDBC.getInstance().getConnection();
-            // NOUVEAU: On retire la sélection du champ 'visible' dans le WHERE du SELECT si vous ne l'utilisez pas
             // On sélectionne la colonne 'proprietaire' pour vérifier l'état de capture
             PreparedStatement requete = connexion.prepareStatement("SELECT espece, latitude, longitude, visible, proprietaire FROM pokemons;");
             ResultSet resultat = requete.executeQuery();
 
             while (resultat.next()) {
-                // ANCIENNE LIGNE RETIRÉE: if (!resultat.getBoolean("visible")) continue; 
-
                 String espece = resultat.getString("espece");
                 double latitude = resultat.getDouble("latitude");
                 double longitude = resultat.getDouble("longitude");
@@ -181,7 +205,7 @@ public class Pokemons {
                 int x = laCarte.longitudeEnPixel(longitude);
                 int y = laCarte.latitudeEnPixel(latitude);
 
-                // --- CHOIX DE LA PLANCHE À DESSINER (CORRIGÉ) ---
+                // --- CHOIX DE LA PLANCHE À DESSINER ---
                 BufferedImage[][] plancheActive = null;
 
                 if (estCapture) {
