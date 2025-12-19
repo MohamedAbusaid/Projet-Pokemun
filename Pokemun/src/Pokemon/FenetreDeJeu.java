@@ -71,24 +71,25 @@ public class FenetreDeJeu extends JFrame implements ActionListener, KeyListener,
     // --- BOUCLE DE JEU (Appelée toutes les 40ms) ---
     @Override
     public void actionPerformed(ActionEvent e) {
-        // 1. Mise à jour logique (Déplacements, BDD, Collisions)
-        this.jeu.miseAJour();
+        // 1. Mise à jour logique (Seulement si le jeu n'est pas fini)
+        // On vérifie si c'est fini, mais on ne stoppe pas le timer !
+        boolean jeuEstFini = this.jeu.estTermine();
         
-        // 2. Nettoyage de l'écran (Fond noir pour éviter les traces)
+        if (!jeuEstFini) {
+            this.jeu.miseAJour();
+        }
+        
+        // 2. Nettoyage de l'écran
         this.contexte.setColor(Color.BLACK);
         this.contexte.fillRect(0, 0, this.jLabel1.getWidth(), this.jLabel1.getHeight());
 
-        // 3. Rendu graphique (Dessin de la carte, des joueurs, etc.)
+        // 3. Rendu graphique 
+        // IMPORTANT : On continue d'appeler rendu() même si c'est fini, 
+        // pour voir le message "Temps Écoulé" clignoter !
         this.jeu.rendu(contexte);
         
-        // 4. Rafraîchissement de l'affichage
+        // 4. Rafraîchissement
         this.jLabel1.repaint();
-        
-        // Vérification de fin de partie
-        if (this.jeu.estTermine()) {
-            this.timer.stop();
-            System.out.println("Fin de la partie !");
-        }
     }
 
     // --- GESTION CLAVIER ---
@@ -131,16 +132,20 @@ public class FenetreDeJeu extends JFrame implements ActionListener, KeyListener,
             this.jeu.getAvatar().setToucheGauche(false);
         }
     }
-    
+
     @Override
-    public void mouseClicked(java.awt.event.MouseEvent evt) {
-        if ("Dresseur".equalsIgnoreCase(this.jeu.getAvatar().getRole())) {
+    public void mouseClicked(java.awt.event.MouseEvent evt) {}
+
+    @Override
+    public void mousePressed(java.awt.event.MouseEvent evt) {
+        // ON DÉPLACE LE CODE ICI !
+        // C'est beaucoup plus réactif : ça tire dès que le doigt appuie.
+        if (this.jeu.getAvatar() != null && "Dresseur".equalsIgnoreCase(this.jeu.getAvatar().getRole())) {
+            // On récupère les coordonnées de la souris par rapport au JLabel (le décor)
+            // evt.getX() et evt.getY() fonctionnent bien ici
             this.jeu.getAvatar().lancerMuball(evt.getX(), evt.getY());
         }
     }
-
-    @Override
-    public void mousePressed(java.awt.event.MouseEvent evt) {}
 
     @Override
     public void mouseReleased(java.awt.event.MouseEvent evt) {}

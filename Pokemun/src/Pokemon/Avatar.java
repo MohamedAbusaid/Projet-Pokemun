@@ -30,32 +30,54 @@ public class Avatar {
     private int etapeAnimation = 0; 
     private long dernierChangement = 0; 
     
+    // Captures
+    private BufferedImage[][] spritesCapture; 
+    private long debutMessageCapture = 0; // Pour savoir quand on a été capturé
+    private boolean etaitCapture = false; // Pour détecter le moment précis de la capture
+    
     // Vitesses ajustées
     private final double VITESSE_LAT = 0.000015; 
     private final double VITESSE_LON = 0.000060; 
+    
+    // Chronomètre
+    private long debutPartie = 0;
+    private final long DUREE_PARTIE = 60 * 1000; // 1 minute (en millisecondes)
 
     public Avatar(Carte laCarte, String pseudoJoueur) {
         this.laCarte = laCarte;
         this.pseudo = pseudoJoueur; 
-        
+
         recupererRole(); // Récupère "Dresseur", "Drascore", etc.
         chargerPositionInitiale();
+        chargerDebutPartie();
 
-        // Chargement de la planche correspondante
+        // --- CHARGEMENT DES IMAGES ---
         try {
+            // 1. Chargement de l'image NORMALE
             String nomImage = "";
             if ("Dresseur".equalsIgnoreCase(role)) {
                 nomImage = "/resources/Dresseur.png"; 
             } else {
-                // Si je suis un Pokémon, je charge l'image de mon espèce
                 nomImage = "/resources/" + role + ".png"; 
             }
-            
+
+            // On charge et découpe l'image normale
             BufferedImage planche = ImageIO.read(getClass().getResource(nomImage));
             this.sprites = decouperPlanche(planche);
-            
+
+            // 2. Chargement de l'image CAPTURE (Uniquement si ce n'est PAS le dresseur)
+            if (!"Dresseur".equalsIgnoreCase(role)) {
+                try {
+                    String nomImageCapture = "/resources/" + role + "_Capture.png";
+                    BufferedImage plancheCapture = ImageIO.read(getClass().getResource(nomImageCapture));
+                    this.spritesCapture = decouperPlanche(plancheCapture);
+                } catch (Exception e) {
+                    System.err.println("Pas d'image capture trouvée pour " + role + " (ou erreur lecture).");
+                }
+            }
+
         } catch (Exception ex) {
-            System.err.println("Erreur chargement Avatar (" + role + ") : " + ex.getMessage());
+            System.err.println("Erreur critique chargement Avatar (" + role + ") : " + ex.getMessage());
         }
     }
 
@@ -118,6 +140,19 @@ public class Avatar {
         } catch (SQLException ex) {
             ex.printStackTrace();
         }
+    }
+    
+    private void chargerDebutPartie() {
+        try {
+            Connection con = SingletonJDBC.getInstance().getConnection();
+            // On récupère la dernière partie créée
+            PreparedStatement req = con.prepareStatement("SELECT debut FROM parties ORDER BY id DESC LIMIT 1");
+            ResultSet res = req.executeQuery();
+            if (res.next()) {
+                this.debutPartie = res.getTimestamp("debut").getTime();
+            }
+            req.close();
+        } catch (SQLException ex) { ex.printStackTrace(); }
     }
     
     public void miseAJour() {
@@ -214,30 +249,48 @@ public class Avatar {
     public void rendu(Graphics2D contexte) {
         try {
             Connection connexion = SingletonJDBC.getInstance().getConnection();
-            PreparedStatement requete = connexion.prepareStatement("SELECT latitude, longitude FROM joueurs WHERE pseudo = ?");
+
+            PreparedStatement requete = connexion.prepareStatement(
+                "SELECT latitude, longitude, statut FROM joueurs WHERE pseudo = ?"
+            );
             requete.setString(1, pseudo);
             ResultSet resultat = requete.executeQuery();
-            
+
             if (resultat.next()) {
                 double latitude = resultat.getDouble("latitude");
                 double longitude = resultat.getDouble("longitude");
-                
+                String statut = resultat.getString("statut");
+
+                boolean estCapture = "CAPTURE".equals(statut);
+
+                // --- GESTION DU CHRONO ---
+                if (estCapture && !etaitCapture) {
+                    debutMessageCapture = System.currentTimeMillis();
+                    etaitCapture = true;
+                } else if (!estCapture) {
+                    etaitCapture = false;
+                }
+
                 int x = laCarte.longitudeEnPixel(longitude);
                 int y = laCarte.latitudeEnPixel(latitude);
-                
-                // --- CORRECTION COULEUR ---
-                // On définit la couleur du joueur ICI pour l'utiliser pour le rond ET le texte
+
+                // Couleur Joueur
                 Color couleurJoueur;
                 if ("Dresseur".equalsIgnoreCase(this.role)) {
                     couleurJoueur = Color.RED;
                 } else {
-                    couleurJoueur = Color.YELLOW; // Jaune pour les Pokémon (Insectes)
+                    couleurJoueur = Color.YELLOW; 
                 }
-                // --------------------------
 
-                // Calcul de la bonne image
+                // Choix Sprite
+                BufferedImage[][] spritesActifs = sprites;
+                if (estCapture && spritesCapture != null) {
+                    spritesActifs = spritesCapture;
+                }
+
+                // Dessin Perso
                 BufferedImage imgAffiche = null;
-                if (sprites != null) {
+                if (spritesActifs != null) {
                     int col = 0;
                     int lig = 0;
                     switch(direction) {
@@ -246,25 +299,110 @@ public class Avatar {
                         case 2: col = 1; lig = 0 + etapeAnimation; break; 
                         case 3: col = 1; lig = 2 + etapeAnimation; break; 
                     }
-                    imgAffiche = sprites[col][lig];
+                    imgAffiche = spritesActifs[col][lig];
                 }
 
                 if (imgAffiche != null) {
                     contexte.drawImage(imgAffiche, x - 16, y - 16, 32, 32, null);
                 } else {
-                    // Fallback avec la bonne couleur
                     contexte.setColor(couleurJoueur);
                     contexte.fillOval(x - 10, y - 10, 20, 20);
                 }
-                
-                // --- AFFICHAGE PSEUDO CENTRÉ AVEC LA BONNE COULEUR ---
-                contexte.setColor(couleurJoueur); // Rouge pour Dresseur, Jaune pour Pokemon
+
+                // Dessin Pseudo
+                contexte.setColor(couleurJoueur); 
                 contexte.setFont(new java.awt.Font("Dialog", java.awt.Font.BOLD, 12));
-                
-                FontMetrics fm = contexte.getFontMetrics();
-                int largeurTexte = fm.stringWidth(pseudo);
+                int largeurTexte = contexte.getFontMetrics().stringWidth(pseudo);
                 contexte.drawString(pseudo, x - (largeurTexte / 2), y - 20);
-                // -----------------------------------------------------
+
+                // =========================================================
+                // --- MESSAGE "GAME OVER" CLIGNOTANT (5 secondes) ---
+                // =========================================================
+                if (estCapture && (System.currentTimeMillis() - debutMessageCapture < 5000)) {
+
+                    // MODIFICATION ICI : 800ms au lieu de 500ms pour ralentir le rythme
+                    if ((System.currentTimeMillis() / 600) % 2 == 0) {
+
+                        java.awt.Font fontOriginale = contexte.getFont();
+
+                        String message = "VOUS AVEZ ÉTÉ CAPTURÉ !";
+                        contexte.setFont(new java.awt.Font("Dialog", java.awt.Font.BOLD, 40));
+
+                        // Ombre
+                        contexte.setColor(Color.BLACK);
+                        int msgLargeur = contexte.getFontMetrics().stringWidth(message);
+                        contexte.drawString(message, 320 - (msgLargeur / 2) + 2, 480 + 2);
+
+                        // Texte Rouge
+                        contexte.setColor(Color.RED);
+                        contexte.drawString(message, 320 - (msgLargeur / 2), 480);
+
+                        contexte.setFont(fontOriginale);
+                    }
+                }
+
+                // =========================================================
+                // --- GESTION DU CHRONOMÈTRE ET FIN DE PARTIE ---
+                // =========================================================
+
+                // 1. IMPORTANT : On sauvegarde la police actuelle pour ne pas casser l'affichage des autres joueurs
+                java.awt.Font fontNormale = contexte.getFont();
+
+                long tempsEcoule = System.currentTimeMillis() - this.debutPartie;
+                long tempsRestant = DUREE_PARTIE - tempsEcoule;
+
+                if (tempsRestant < 0) tempsRestant = 0;
+
+                // Affichage du chrono en haut à droite
+                long minutes = (tempsRestant / 1000) / 60;
+                long secondes = (tempsRestant / 1000) % 60;
+                String texteChrono = String.format("%02d:%02d", minutes, secondes);
+
+                contexte.setFont(new java.awt.Font("Monospaced", java.awt.Font.BOLD, 20));
+                int largeurChrono = contexte.getFontMetrics().stringWidth(texteChrono);
+
+                contexte.setColor(Color.BLACK);
+                contexte.drawString(texteChrono, 620 - largeurChrono + 2, 30 + 2); 
+                contexte.setColor(Color.WHITE);
+                contexte.drawString(texteChrono, 620 - largeurChrono, 30);         
+
+                // --- MESSAGE DE FIN DE PARTIE (Si le temps est écoulé) ---
+                if (tempsRestant == 0) {
+
+                    // AJOUT DU CLIGNOTEMENT (500ms)
+                    if ((System.currentTimeMillis() / 600) % 2 != 0) {
+
+                        String ligne1 = "TEMPS ÉCOULÉ !";
+                        String ligne2 = "VICTOIRE DES POKÉµNS"; 
+
+                        Color couleurFin = Color.WHITE;
+
+                        if ("Dresseur".equalsIgnoreCase(this.role)) {
+                            couleurFin = Color.RED;
+                        } else {
+                            couleurFin = Color.GREEN;
+                        }
+
+                        contexte.setFont(new java.awt.Font("Dialog", java.awt.Font.BOLD, 30));
+
+                        // --- DESSIN LIGNE 1 ---
+                        int largLigne1 = contexte.getFontMetrics().stringWidth(ligne1);
+                        contexte.setColor(Color.BLACK);
+                        contexte.drawString(ligne1, 320 - (largLigne1/2) + 2, 400 + 2);
+                        contexte.setColor(couleurFin);
+                        contexte.drawString(ligne1, 320 - (largLigne1/2), 400);
+
+                        // --- DESSIN LIGNE 2 ---
+                        int largLigne2 = contexte.getFontMetrics().stringWidth(ligne2);
+                        contexte.setColor(Color.BLACK);
+                        contexte.drawString(ligne2, 320 - (largLigne2/2) + 2, 440 + 2);
+                        contexte.setColor(couleurFin);
+                        contexte.drawString(ligne2, 320 - (largLigne2/2), 440);
+                    }
+                }
+
+                // TRES IMPORTANT : On remet la police normale (toujours à la fin)
+                contexte.setFont(fontNormale);
             }
             requete.close();
         } catch (SQLException ex) { ex.printStackTrace(); }
