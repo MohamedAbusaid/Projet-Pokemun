@@ -248,6 +248,9 @@ public class Avatar {
 
     public void rendu(Graphics2D contexte) {
         try {
+            // 1. Sauvegarde de la police normale
+            java.awt.Font fontStandard = new java.awt.Font("Dialog", java.awt.Font.BOLD, 12);
+
             Connection connexion = SingletonJDBC.getInstance().getConnection();
 
             PreparedStatement requete = connexion.prepareStatement(
@@ -263,7 +266,7 @@ public class Avatar {
 
                 boolean estCapture = "CAPTURE".equals(statut);
 
-                // --- GESTION DU CHRONO ---
+                // --- CHRONO CAPTURE ---
                 if (estCapture && !etaitCapture) {
                     debutMessageCapture = System.currentTimeMillis();
                     etaitCapture = true;
@@ -274,7 +277,7 @@ public class Avatar {
                 int x = laCarte.longitudeEnPixel(longitude);
                 int y = laCarte.latitudeEnPixel(latitude);
 
-                // Couleur Joueur
+                // --- COULEURS ---
                 Color couleurJoueur;
                 if ("Dresseur".equalsIgnoreCase(this.role)) {
                     couleurJoueur = Color.RED;
@@ -282,13 +285,13 @@ public class Avatar {
                     couleurJoueur = Color.YELLOW; 
                 }
 
-                // Choix Sprite
+                // --- SPRITE ---
                 BufferedImage[][] spritesActifs = sprites;
                 if (estCapture && spritesCapture != null) {
                     spritesActifs = spritesCapture;
                 }
 
-                // Dessin Perso
+                // --- DESSIN PERSO ---
                 BufferedImage imgAffiche = null;
                 if (spritesActifs != null) {
                     int col = 0;
@@ -309,54 +312,40 @@ public class Avatar {
                     contexte.fillOval(x - 10, y - 10, 20, 20);
                 }
 
-                // Dessin Pseudo
+                // --- DESSIN PSEUDO ---
                 contexte.setColor(couleurJoueur); 
-                contexte.setFont(new java.awt.Font("Dialog", java.awt.Font.BOLD, 12));
+                contexte.setFont(fontStandard);
                 int largeurTexte = contexte.getFontMetrics().stringWidth(pseudo);
                 contexte.drawString(pseudo, x - (largeurTexte / 2), y - 20);
 
-                // =========================================================
-                // --- MESSAGE "GAME OVER" CLIGNOTANT (5 secondes) ---
-                // =========================================================
+                // --- MESSAGE "VOUS AVEZ ÉTÉ CAPTURÉ" (Clignotant) ---
                 if (estCapture && (System.currentTimeMillis() - debutMessageCapture < 5000)) {
-
-                    // MODIFICATION ICI : 800ms au lieu de 500ms pour ralentir le rythme
-                    if ((System.currentTimeMillis() / 600) % 2 == 0) {
-
-                        java.awt.Font fontOriginale = contexte.getFont();
-
+                    if ((System.currentTimeMillis() / 800) % 2 == 0) {
+                        contexte.setFont(new java.awt.Font("Dialog", java.awt.Font.BOLD, 30));
                         String message = "VOUS AVEZ ÉTÉ CAPTURÉ !";
-                        contexte.setFont(new java.awt.Font("Dialog", java.awt.Font.BOLD, 40));
-
-                        // Ombre
                         contexte.setColor(Color.BLACK);
                         int msgLargeur = contexte.getFontMetrics().stringWidth(message);
                         contexte.drawString(message, 320 - (msgLargeur / 2) + 2, 480 + 2);
-
-                        // Texte Rouge
                         contexte.setColor(Color.RED);
                         contexte.drawString(message, 320 - (msgLargeur / 2), 480);
-
-                        contexte.setFont(fontOriginale);
                     }
                 }
 
                 // =========================================================
-                // --- GESTION DU CHRONOMÈTRE ET FIN DE PARTIE ---
+                // --- GESTION DU HUD (Chrono + Survivants) ---
                 // =========================================================
-
-                java.awt.Font fontNormale = contexte.getFont();
 
                 long tempsEcoule = System.currentTimeMillis() - this.debutPartie;
                 long tempsRestant = DUREE_PARTIE - tempsEcoule;
 
                 if (tempsRestant < 0) tempsRestant = 0;
 
-                // Affichage du chrono
+                // 1. AFFICHAGE CHRONO
                 long minutes = (tempsRestant / 1000) / 60;
                 long secondes = (tempsRestant / 1000) % 60;
                 String texteChrono = String.format("%02d:%02d", minutes, secondes);
 
+                // Police Monospaced pour le chrono
                 contexte.setFont(new java.awt.Font("Monospaced", java.awt.Font.BOLD, 20));
                 int largeurChrono = contexte.getFontMetrics().stringWidth(texteChrono);
 
@@ -365,40 +354,54 @@ public class Avatar {
                 contexte.setColor(Color.WHITE);
                 contexte.drawString(texteChrono, 620 - largeurChrono, 30);         
 
+                // 2. AFFICHAGE COMPTEUR SURVIVANTS
+                int nbSurvivants = 0;
+                PreparedStatement reqCount = connexion.prepareStatement(
+                    "SELECT COUNT(*) FROM joueurs WHERE role != 'Dresseur' AND statut = 'LIBRE'"
+                );
+                ResultSet resCount = reqCount.executeQuery();
+                if (resCount.next()) {
+                    nbSurvivants = resCount.getInt(1);
+                }
+                reqCount.close();
+
+                String texteSurvivants = "Survivants : " + nbSurvivants;
+
+                // MODIFICATION ICI : On utilise aussi "Monospaced" pour que ce soit identique
+                contexte.setFont(new java.awt.Font("Monospaced", java.awt.Font.BOLD, 20));
+                int largeurSurvivants = contexte.getFontMetrics().stringWidth(texteSurvivants);
+
+                contexte.setColor(Color.BLACK);
+                contexte.drawString(texteSurvivants, 620 - largeurSurvivants + 2, 60 + 2); 
+                contexte.setColor(Color.WHITE);
+                contexte.drawString(texteSurvivants, 620 - largeurSurvivants, 60);
+
                 // --- MESSAGE DE FIN DE PARTIE ---
-                // On affiche le message si le temps est écoulé OU si un gagnant est déclaré
                 boolean partieFinie = (tempsRestant == 0) || (Jeu.gagnant != null && !Jeu.gagnant.isEmpty());
 
                 if (partieFinie) {
-
-                    // CLIGNOTEMENT (500ms)
-                    if ((System.currentTimeMillis() / 800) % 2 != 0) {
+                    if ((System.currentTimeMillis() / 500) % 2 != 0) {
 
                         String ligne1 = "";
                         String ligne2 = "";
                         Color couleurFin = Color.RED;
 
-                        // CAS 1 : VICTOIRE DRESSEUR (Tous capturés)
                         if ("DRESSEUR".equals(Jeu.gagnant)) {
                             ligne1 = "PARTIE TERMINÉE !";
                             ligne2 = "VICTOIRE DU DRESSEUR";
-                        } 
-                        // CAS 2 : VICTOIRE POKEMONS (Temps écoulé)
-                        else {
+                        } else {
                             ligne1 = "TEMPS ÉCOULÉ !";
                             ligne2 = "VICTOIRE DES POKÉµNS";
                         }
 
                         contexte.setFont(new java.awt.Font("Dialog", java.awt.Font.BOLD, 30));
 
-                        // --- DESSIN LIGNE 1 ---
                         int largLigne1 = contexte.getFontMetrics().stringWidth(ligne1);
                         contexte.setColor(Color.BLACK);
                         contexte.drawString(ligne1, 320 - (largLigne1/2) + 2, 400 + 2);
                         contexte.setColor(couleurFin);
                         contexte.drawString(ligne1, 320 - (largLigne1/2), 400);
 
-                        // --- DESSIN LIGNE 2 ---
                         int largLigne2 = contexte.getFontMetrics().stringWidth(ligne2);
                         contexte.setColor(Color.BLACK);
                         contexte.drawString(ligne2, 320 - (largLigne2/2) + 2, 440 + 2);
@@ -406,8 +409,8 @@ public class Avatar {
                         contexte.drawString(ligne2, 320 - (largLigne2/2), 440);
                     }
                 }
-                contexte.setFont(fontNormale);            
-                }
+            }
+            contexte.setFont(fontStandard); // RETOUR A LA POLICE NORMALE
             requete.close();
         } catch (SQLException ex) { ex.printStackTrace(); }
     }
