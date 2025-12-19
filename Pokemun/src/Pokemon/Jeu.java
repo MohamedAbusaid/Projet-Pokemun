@@ -14,6 +14,7 @@ public class Jeu {
     private Dresseurs lesAutresJoueurs; 
     private Pokemons lesMonstres;  
     private boolean partieFinie = false; // Pour se souvenir que c'est fini
+    public static String gagnant = ""; // "DRESSEUR" ou "POKEMONS"
 
     public Jeu(String pseudoJoueur) {
         this.carte = new Carte();
@@ -44,7 +45,6 @@ public class Jeu {
     }
     
     public boolean estTermine() {
-        // Si on sait déjà que c'est fini, on répond tout de suite "vrai" sans interroger la BDD
         if (this.partieFinie) return true;
 
         try {
@@ -59,13 +59,14 @@ public class Jeu {
             }
             reqTemps.close();
 
-            long duree = 60 * 1000; // 1 minute
+            long duree = 60 * 1000; 
             if (System.currentTimeMillis() - debut > duree) {
-                this.partieFinie = true; // On mémorise que c'est fini
+                this.partieFinie = true;
+                Jeu.gagnant = "POKEMONS"; // Temps écoulé = Victoire survie
                 return true;
             }
 
-            // 2. Vérifier si le Dresseur a GAGNÉ
+            // 2. Vérifier si le Dresseur a GAGNÉ (Plus aucun survivant)
             PreparedStatement reqVictoire = con.prepareStatement(
                 "SELECT COUNT(*) FROM joueurs WHERE role != 'Dresseur' AND statut = 'LIBRE'"
             );
@@ -75,13 +76,12 @@ public class Jeu {
             reqVictoire.close();
 
             if (survivants == 0) {
-                this.partieFinie = true; // On mémorise que c'est fini
-                return true;
+                this.partieFinie = true;
+                Jeu.gagnant = "DRESSEUR"; // Tous capturés = Victoire Dresseur
+                return true; 
             }
-
         } catch (SQLException e) { e.printStackTrace(); }
-
-        return false;
+            return false;
     }
 
     public Avatar getAvatar() {

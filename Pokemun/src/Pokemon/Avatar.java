@@ -345,7 +345,6 @@ public class Avatar {
                 // --- GESTION DU CHRONOMÈTRE ET FIN DE PARTIE ---
                 // =========================================================
 
-                // 1. IMPORTANT : On sauvegarde la police actuelle pour ne pas casser l'affichage des autres joueurs
                 java.awt.Font fontNormale = contexte.getFont();
 
                 long tempsEcoule = System.currentTimeMillis() - this.debutPartie;
@@ -353,7 +352,7 @@ public class Avatar {
 
                 if (tempsRestant < 0) tempsRestant = 0;
 
-                // Affichage du chrono en haut à droite
+                // Affichage du chrono
                 long minutes = (tempsRestant / 1000) / 60;
                 long secondes = (tempsRestant / 1000) % 60;
                 String texteChrono = String.format("%02d:%02d", minutes, secondes);
@@ -366,21 +365,28 @@ public class Avatar {
                 contexte.setColor(Color.WHITE);
                 contexte.drawString(texteChrono, 620 - largeurChrono, 30);         
 
-                // --- MESSAGE DE FIN DE PARTIE (Si le temps est écoulé) ---
-                if (tempsRestant == 0) {
+                // --- MESSAGE DE FIN DE PARTIE ---
+                // On affiche le message si le temps est écoulé OU si un gagnant est déclaré
+                boolean partieFinie = (tempsRestant == 0) || (Jeu.gagnant != null && !Jeu.gagnant.isEmpty());
 
-                    // AJOUT DU CLIGNOTEMENT (500ms)
-                    if ((System.currentTimeMillis() / 600) % 2 != 0) {
+                if (partieFinie) {
 
-                        String ligne1 = "TEMPS ÉCOULÉ !";
-                        String ligne2 = "VICTOIRE DES POKÉµNS"; 
+                    // CLIGNOTEMENT (500ms)
+                    if ((System.currentTimeMillis() / 800) % 2 != 0) {
 
-                        Color couleurFin = Color.WHITE;
+                        String ligne1 = "";
+                        String ligne2 = "";
+                        Color couleurFin = Color.RED;
 
-                        if ("Dresseur".equalsIgnoreCase(this.role)) {
-                            couleurFin = Color.RED;
-                        } else {
-                            couleurFin = Color.GREEN;
+                        // CAS 1 : VICTOIRE DRESSEUR (Tous capturés)
+                        if ("DRESSEUR".equals(Jeu.gagnant)) {
+                            ligne1 = "PARTIE TERMINÉE !";
+                            ligne2 = "VICTOIRE DU DRESSEUR";
+                        } 
+                        // CAS 2 : VICTOIRE POKEMONS (Temps écoulé)
+                        else {
+                            ligne1 = "TEMPS ÉCOULÉ !";
+                            ligne2 = "VICTOIRE DES POKÉµNS";
                         }
 
                         contexte.setFont(new java.awt.Font("Dialog", java.awt.Font.BOLD, 30));
@@ -400,10 +406,8 @@ public class Avatar {
                         contexte.drawString(ligne2, 320 - (largLigne2/2), 440);
                     }
                 }
-
-                // TRES IMPORTANT : On remet la police normale (toujours à la fin)
-                contexte.setFont(fontNormale);
-            }
+                contexte.setFont(fontNormale);            
+                }
             requete.close();
         } catch (SQLException ex) { ex.printStackTrace(); }
     }
