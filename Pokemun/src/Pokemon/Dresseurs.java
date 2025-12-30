@@ -100,7 +100,7 @@ public class Dresseurs {
             while (resultat.next()) {
                 String pseudo = resultat.getString("pseudo");
                 if (pseudo.equals(this.pseudoLocal)) continue; 
-
+                
                 String statut = resultat.getString("statut");
                 boolean estCapture = "CAPTURE".equals(statut);
 
@@ -124,7 +124,7 @@ public class Dresseurs {
                             // Calcul distance (Pythagore)
                             double distance = Math.sqrt(Math.pow(x - monPixelX, 2) + Math.pow(y - monPixelY, 2));
                             // Si proche (< 150px soit environ 5 cases), je le vois
-                            if (distance < 150) {
+                            if (distance < 45) {
                                 visible = true;
                             }
                         }

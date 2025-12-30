@@ -13,6 +13,7 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.Timer;
 
+
 /**
  * Fenêtre principale du jeu DuBrazil.
  * Elle gère la boucle de jeu (Timer), l'affichage et les entrées clavier.
@@ -153,7 +154,7 @@ public class FenetreDeJeu extends JFrame implements ActionListener, KeyListener,
 
     // Main pour tester rapidement (simule une connexion)
     public static void main(String[] args) {
-        FenetreDeJeu fenetre = new FenetreDeJeu("Moha");
+        FenetreDeJeu fenetre = new FenetreDeJeu("Jawad");
         fenetre.setVisible(true);
     }
 }

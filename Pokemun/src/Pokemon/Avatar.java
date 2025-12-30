@@ -10,6 +10,12 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import javax.imageio.ImageIO;
 import outils.SingletonJDBC;
+import javax.swing.JOptionPane;
+import javax.swing.JOptionPane;
+import javax.swing.JTextArea;
+import javax.swing.BorderFactory;
+import java.awt.Color;
+import java.awt.Font;
 
 public class Avatar {
 
@@ -178,7 +184,48 @@ public void miseAJour() {
 
         // 3. Contrôles Classiques
         if (toucheHaut) {
-            futurLat += VITESSE_LAT; // + pour monter
+            // Calcul de la case devant nous (vers le haut)
+            double testLat = maLatitude + VITESSE_LAT;
+            int idDevant = laCarte.getTuileID(testLat, maLongitude);
+
+            // --- INTERACTION PANNEAU (ID 4) ---
+            if (idDevant == 4) {
+                enMouvement = false;
+                toucheHaut = false; 
+
+                // 1. Création d'une zone de texte personnalisée
+                JTextArea contenuPanneau = new JTextArea(
+                    "--- RÈGLES DU JEU ---\n\n" +
+                    "1. Utilisez les flèches pour bouger.\n" +
+                    "2. Les buissons vous rendent invisible.\n" +
+                    "3. Dresseur : Cliquez pour lancer une μ-ball.\n" +
+                    "4. Pokémon : Fuyez pour ne pas être capturé !"
+                );
+
+                // 2. Le Style "Bois"
+                // Fond : Beige bois (RGB: 222, 184, 135)
+                contenuPanneau.setBackground(new Color(222, 184, 135)); 
+                // Texte : Marron foncé (RGB: 101, 67, 33)
+                contenuPanneau.setForeground(new Color(101, 67, 33));   
+                // Police : Serif (style ancien), Gras, Taille 14
+                contenuPanneau.setFont(new Font("Serif", Font.BOLD, 14)); 
+                
+                // On empêche d'éditer le texte et on ajoute une marge intérieure
+                contenuPanneau.setEditable(false);
+                contenuPanneau.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+
+                // 3. Affichage
+                // On utilise PLAIN_MESSAGE pour ne pas avoir l'icône "i" bleue moche
+                JOptionPane.showMessageDialog(null, 
+                    contenuPanneau, 
+                    "Panneau d'information", 
+                    JOptionPane.PLAIN_MESSAGE);
+                    
+                return; 
+            }
+            // ----------------------------------
+
+            futurLat += VITESSE_LAT;
             direction = 0;
             enMouvement = true;
         } else if (toucheBas) {
