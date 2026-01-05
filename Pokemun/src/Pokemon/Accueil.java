@@ -2,7 +2,15 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/GUIForms/JFrame.java to edit this template
  */
-package Pokemon;
+package pokemon;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import javax.swing.ImageIcon;
+import outils.SingletonJDBC;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
 
 /**
  *
@@ -16,8 +24,40 @@ public class Accueil extends javax.swing.JFrame {
      * Creates new form Accueil
      */
     public Accueil() {
-        initComponents();
+        
+        // Créer un JLabel pour l'image de fond
+        initComponents();  // Ajouter tous les composants
+        jButton1.addActionListener(evt -> jButton1ActionPerformed(evt));
+
+        pack(); // Calculer la taille de la fenêtre
+        javax.swing.JLabel background = new javax.swing.JLabel();
+        java.net.URL imgURL = getClass().getResource("/resources/Foret_de_Rambouillet.png");
+        ImageIcon icon = new ImageIcon(imgURL);
+        int imgWidth = icon.getIconWidth();
+        int imgHeight = icon.getIconHeight();
+        this.setSize(imgWidth, imgHeight);
+        setLocationRelativeTo(null);
+        if (imgURL != null) {
+            background.setIcon(new javax.swing.ImageIcon(imgURL));
+        } else {
+            System.err.println("Image non trouvée !");
+        }
+        // Position initiale et taille
+        background.setBounds(0, 0, this.getWidth(), this.getHeight());
+        // Ajouter le JLabel au LayeredPane pour qu'il reste derrière tous les composants
+        this.getLayeredPane().add(background, new Integer(Integer.MIN_VALUE));
+        // Rendre le content pane transparent pour voir le fond
+        ((javax.swing.JPanel)this.getContentPane()).setOpaque(false);
+        // Ajuster la taille de l'image quand la fenêtre change de taille
+        this.addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentResized(java.awt.event.ComponentEvent e) {
+                background.setSize(getWidth(), getHeight());
+            }
+        });
     }
+
+
 
     /**
      * This method is called from within the constructor to initialize the form.
@@ -28,22 +68,214 @@ public class Accueil extends javax.swing.JFrame {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
+        jLabel2 = new javax.swing.JLabel();
+        jLabel6 = new javax.swing.JLabel();
+        jLabel3 = new javax.swing.JLabel();
+        jLabel4 = new javax.swing.JLabel();
+        jTextField1 = new javax.swing.JTextField();
+        jLabel5 = new javax.swing.JLabel();
+        jTextField2 = new javax.swing.JTextField();
+        jProgressBar1 = new javax.swing.JProgressBar();
+        jLabel7 = new javax.swing.JLabel();
+        jButton1 = new javax.swing.JButton();
+
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
+
+        jLabel2.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
+        jLabel2.setForeground(new java.awt.Color(255, 255, 255));
+        jLabel2.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        jLabel2.setText("Veuillez attendre que tous les joueurs se connectent...");
+
+        jLabel6.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
+        jLabel6.setForeground(new java.awt.Color(255, 255, 255));
+        jLabel6.setText("0");
+
+        jLabel3.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
+        jLabel3.setForeground(new java.awt.Color(255, 255, 255));
+        jLabel3.setText("Nombre de joueurs connectés : ");
+
+        jLabel4.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
+        jLabel4.setForeground(new java.awt.Color(255, 255, 255));
+        jLabel4.setText("Pseudo");
+
+        jTextField1.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jTextField1ActionPerformed(evt);
+            }
+        });
+
+        jLabel5.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
+        jLabel5.setForeground(new java.awt.Color(255, 255, 255));
+        jLabel5.setText("Mot de passe");
+
+        jTextField2.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jTextField2ActionPerformed(evt);
+            }
+        });
+
+        jLabel7.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
+        jLabel7.setForeground(new java.awt.Color(255, 255, 255));
+        jLabel7.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        jLabel7.setText("Connectez-vous à l'application...");
+
+        jButton1.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
+        jButton1.setText("Entrez...");
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 400, Short.MAX_VALUE)
+            .addGroup(layout.createSequentialGroup()
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(layout.createSequentialGroup()
+                        .addGap(68, 68, 68)
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addGroup(layout.createSequentialGroup()
+                                .addComponent(jLabel3)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(jLabel6))
+                            .addGroup(layout.createSequentialGroup()
+                                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                    .addComponent(jLabel4)
+                                    .addComponent(jLabel5))
+                                .addGap(36, 36, 36)
+                                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                    .addComponent(jTextField2, javax.swing.GroupLayout.PREFERRED_SIZE, 237, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                    .addComponent(jTextField1, javax.swing.GroupLayout.PREFERRED_SIZE, 237, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addGap(46, 46, 46)
+                                .addComponent(jButton1))))
+                    .addGroup(layout.createSequentialGroup()
+                        .addGap(150, 150, 150)
+                        .addComponent(jLabel7, javax.swing.GroupLayout.PREFERRED_SIZE, 300, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addGroup(layout.createSequentialGroup()
+                        .addGap(100, 100, 100)
+                        .addComponent(jProgressBar1, javax.swing.GroupLayout.PREFERRED_SIZE, 400, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addGroup(layout.createSequentialGroup()
+                        .addGap(65, 65, 65)
+                        .addComponent(jLabel2, javax.swing.GroupLayout.PREFERRED_SIZE, 470, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                .addContainerGap(45, Short.MAX_VALUE))
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 300, Short.MAX_VALUE)
+            .addGroup(layout.createSequentialGroup()
+                .addGap(170, 170, 170)
+                .addComponent(jLabel7)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(layout.createSequentialGroup()
+                        .addGap(36, 36, 36)
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                            .addComponent(jLabel4)
+                            .addComponent(jTextField1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                        .addGap(18, 18, 18)
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                            .addComponent(jTextField2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(jLabel5))
+                        .addGap(35, 35, 35))
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(jButton1)
+                        .addGap(50, 50, 50)))
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel3)
+                    .addComponent(jLabel6))
+                .addGap(18, 18, 18)
+                .addComponent(jProgressBar1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(18, 18, 18)
+                .addComponent(jLabel2)
+                .addContainerGap(79, Short.MAX_VALUE))
         );
 
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
+    private void jTextField1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jTextField1ActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_jTextField1ActionPerformed
+
+    private void jTextField2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jTextField2ActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_jTextField2ActionPerformed
+
+    // Méthode pour se connecter en renseignant pseudo et mdp
+    private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {
+
+        String pseudo = jTextField1.getText().trim();
+        String mdp = jTextField2.getText().trim();
+
+        // Vérifications des champs vides
+        if (pseudo.isEmpty() || mdp.isEmpty()) {
+            if (pseudo.isEmpty()) {
+                JOptionPane.showMessageDialog(null, "Aucun pseudo saisi.");
+            }
+            if (mdp.isEmpty()) {
+                JOptionPane.showMessageDialog(null, "Aucun mot de passe saisi.");
+            }
+            return; // on stoppe ici
+        }
+
+        // Pseudo existe ?
+        if (pseudoExiste(pseudo)) {
+            // Mot de passe correct ?
+            if (mdpCorrect(pseudo, mdp)) {
+                int compteur = Integer.parseInt(jLabel6.getText());
+                compteur++;
+                jLabel6.setText(String.valueOf(compteur));
+                JOptionPane.showMessageDialog(null, "Identifiants corrects.");
+                this.setVisible(false);
+                FenetreDeJeu fenetreJeu = new FenetreDeJeu(pseudo);
+                fenetreJeu.setVisible(true);
+            } else {
+                JOptionPane.showMessageDialog(null, "Mot de passe incorrect.");
+            }
+        } else {
+            JOptionPane.showMessageDialog(null, "Pseudo introuvable.");
+        }
+    }
+                                        
+
+    // Méthode permettant de savoir si le pseudo existe
+    private boolean pseudoExiste(String pseudo) {
+        String sql = "SELECT COUNT(*) FROM joueurs WHERE pseudo = ?";
+        try {
+            Connection connexion = outils.SingletonJDBC.getInstance().getConnection();
+            PreparedStatement requete = connexion.prepareStatement(sql);
+            requete.setString(1, pseudo);
+            try (ResultSet resultat = requete.executeQuery()) {
+                if (resultat.next()) {
+                    int nb = resultat.getInt(1);
+                    return nb > 0;
+                }
+            }
+        } 
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+    
+    
+    // Méthode permettant de savoir si le mdp est correct
+    private boolean mdpCorrect(String pseudo, String mdp) {
+        String sql = "SELECT motDePasse FROM joueurs WHERE pseudo = ?";
+        try {
+            Connection connexion = outils.SingletonJDBC.getInstance().getConnection();
+            PreparedStatement requete = connexion.prepareStatement(sql);
+            requete.setString(1, pseudo);
+            try (ResultSet resultat = requete.executeQuery()) {
+                if (resultat.next()) {
+                    String mdpEnBase = resultat.getString("motDePasse");
+                    return mdp.equals(mdpEnBase);
+                } else {
+                    return false;
+                }
+            }
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+        return false; 
+    }
     /**
      * @param args the command line arguments
      */
@@ -68,7 +300,19 @@ public class Accueil extends javax.swing.JFrame {
         /* Create and display the form */
         java.awt.EventQueue.invokeLater(() -> new Accueil().setVisible(true));
     }
+    
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JButton jButton1;
+    private javax.swing.JLabel jLabel2;
+    private javax.swing.JLabel jLabel3;
+    private javax.swing.JLabel jLabel4;
+    private javax.swing.JLabel jLabel5;
+    private javax.swing.JLabel jLabel6;
+    private javax.swing.JLabel jLabel7;
+    private javax.swing.JProgressBar jProgressBar1;
+    private javax.swing.JTextField jTextField1;
+    private javax.swing.JTextField jTextField2;
     // End of variables declaration//GEN-END:variables
 }
+
