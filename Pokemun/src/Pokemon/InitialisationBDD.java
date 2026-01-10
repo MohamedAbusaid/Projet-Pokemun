@@ -43,12 +43,12 @@ public class InitialisationBDD {
             
             // Joueurs
             statement.executeUpdate("INSERT INTO joueurs VALUES ('Jawad', '1234', 'Dresseur', 47.251917, 5.988699, 'LIBRE', NOW())");
-            statement.executeUpdate("INSERT INTO joueurs VALUES ('Tanguy', '1234', 'Drascore', 47.249617, 5.993995, 'LIBRE', NOW())");
+            statement.executeUpdate("INSERT INTO joueurs VALUES ('Tanguy', '1234', 'Drascore', 47.250617, 5.991995, 'LIBRE', NOW())");
             statement.executeUpdate("INSERT INTO joueurs VALUES ('Moha', '1234', 'Libegon', 47.251017, 5.993995, 'LIBRE', NOW())");
             
             // PNJ
             statement.executeUpdate("INSERT INTO pokemons (espece, latitude, longitude, visible, proprietaire) VALUES ('Cizayox', 47.250983, 5.995654, 1, NULL)");
-            statement.executeUpdate("INSERT INTO pokemons (espece, latitude, longitude, visible, proprietaire) VALUES ('Scarabrute', 47.251500, 5.993000, 1, NULL)");
+            statement.executeUpdate("INSERT INTO pokemons (espece, latitude, longitude, visible, proprietaire) VALUES ('Scarabrute', 47.249817, 5.993000, 1, NULL)");
 
             System.out.println("Base initialisee ! Rôles mis à jour : Dresseur, Drascore, Libegon.");
             

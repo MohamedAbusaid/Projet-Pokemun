@@ -25,7 +25,7 @@ public class Pokemons {
 
     // Constantes de mouvement
     public static final double VITESSE_MUBALL = 0.00008; 
-    public static final double RAYON_CAPTURE = 0.0002; 
+    public static final double RAYON_CAPTURE = 0.0003; 
 
     public Pokemons(Carte carte) {
         this.laCarte = carte;

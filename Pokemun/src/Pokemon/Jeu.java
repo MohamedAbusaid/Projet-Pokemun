@@ -27,6 +27,9 @@ public class Jeu {
         
         // On initialise les PNJ
         this.lesMonstres = new Pokemons(carte);
+        
+        //
+        this.lesAutresJoueurs.setAvatar(this.avatar);
     }
 
     public void miseAJour() {
