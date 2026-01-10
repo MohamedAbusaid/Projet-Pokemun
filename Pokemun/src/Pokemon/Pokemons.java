@@ -7,7 +7,9 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import javax.imageio.ImageIO;
 import outils.SingletonJDBC;
 
@@ -16,32 +18,71 @@ public class Pokemons {
     protected Carte laCarte;
     private HashMap<String, BufferedImage[][]> sprites = new HashMap<>();
     
-    // CORRECTION 1: Déclaration de la HashMap pour les sprites de capture
-    private HashMap<String, BufferedImage[][]> spritesCapture = new HashMap<>();
-    
-    private int animationFrame = 0;
-    private long lastTime = 0;
-    private int directionAleatoire = 1;
+    // Liste locale pour stocker les pokémons en mémoire vive
+    private List<PokemonEntity> listePokemons = new ArrayList<>();
 
-    // Constantes de mouvement
-    public static final double VITESSE_MUBALL = 0.00008; 
-    public static final double RAYON_CAPTURE = 0.0003; 
+    private int animationFrame = 0;
+    private long lastTimeAnimation = 0;
+    private long lastTimeMoveChoice = 0;
+    
+    // Calibration vitesse
+    private double stepLon; 
+    private double stepLat; 
+
+    // --- CONSTANTES SAUT ---
+    private final int DUREE_SAUT = 500; 
+    private final double DISTANCE_SAUT = 0.00015;
+
+    // Classe interne pour gérer l'état de chaque Pokémon
+    private class PokemonEntity {
+        String espece;
+        double lat, lon;          
+        double targetLat, targetLon; 
+        boolean visible;
+        int direction = 1; // 0=Bas, 1=Haut, 2=Droite, 3=Gauche
+
+        // État du saut
+        boolean enSaut = false;
+        long debutSaut = 0;
+        double latDepartSaut = 0;
+
+        public PokemonEntity(String espece, double lat, double lon, boolean visible) {
+            this.espece = espece;
+            this.lat = lat;
+            this.lon = lon;
+            this.targetLat = lat; 
+            this.targetLon = lon;
+            this.visible = visible;
+        }
+    }
 
     public Pokemons(Carte carte) {
         this.laCarte = carte;
+        chargerPlanche("Cizayox", "/resources/Cizayox.png");
+        chargerPlanche("Scarabrute", "/resources/Scarabrute.png");
         
-        // CORRECTION 2: Chargement des sprites normaux
-        chargerPlanche("Cizayox", "/resources/Cizayox.png", sprites);
-        chargerPlanche("Scarabrute", "/resources/Scarabrute.png", sprites);
-        
-        // CORRECTION 3: Chargement des sprites de capture
-        // Ces fichiers .png doivent exister dans le dossier /resources
-        chargerPlanche("Cizayox", "/resources/Cizayox_Capture.png", spritesCapture); 
-        chargerPlanche("Scarabrute", "/resources/Scarabrute_Capture.png", spritesCapture); 
+        chargerDepuisBDD();
+        calibrerVitesse();
     }
     
-    // CORRECTION 4: Mise à jour de chargerPlanche pour accepter la Map de destination
-    private void chargerPlanche(String espece, String chemin, HashMap<String, BufferedImage[][]> destinationMap) {
+    private void chargerDepuisBDD() {
+        try {
+            Connection connexion = SingletonJDBC.getInstance().getConnection();
+            PreparedStatement requete = connexion.prepareStatement("SELECT espece, latitude, longitude, visible FROM pokemons;");
+            ResultSet resultat = requete.executeQuery();
+            while (resultat.next()) {
+                listePokemons.add(new PokemonEntity(
+                    resultat.getString("espece"),
+                    resultat.getDouble("latitude"),
+                    resultat.getDouble("longitude"),
+                    resultat.getBoolean("visible")
+                ));
+            }
+            requete.close();
+        } catch (SQLException ex) { ex.printStackTrace(); }
+    }
+
+    private void chargerPlanche(String espece, String chemin) {
         try {
             BufferedImage planche = ImageIO.read(getClass().getResource(chemin));
             BufferedImage[][] tuiles = new BufferedImage[2][4];
@@ -50,192 +91,152 @@ public class Pokemons {
                     tuiles[col][lig] = planche.getSubimage(col * 32, lig * 32, 32, 32);
                 }
             }
-            destinationMap.put(espece, tuiles); // Utilise la Map passée en argument
+            sprites.put(espece, tuiles);
         } catch (Exception e) {
-            System.err.println("Erreur Sprite PNJ ("+espece+") : " + chemin + ". Le PNJ sera invisible.");
+            System.err.println("Erreur Sprite : " + chemin);
         }
     }
+    
+    private void calibrerVitesse() {
+        double refLat = 20.0; double refLon = 5.0;
+        if (!listePokemons.isEmpty()) { refLat = listePokemons.get(0).lat; refLon = listePokemons.get(0).lon; }
+        double distanceCibleEnPixels = 32.0; 
 
+        double testDelta = 0.001;
+        int x1 = laCarte.longitudeEnPixel(refLon);
+        int x2 = laCarte.longitudeEnPixel(refLon + testDelta);
+        double distPixelX = Math.abs(x2 - x1);
+        this.stepLon = (distPixelX > 0) ? (distanceCibleEnPixels * testDelta) / distPixelX : 0.0001;
+
+        int y1 = laCarte.latitudeEnPixel(refLat);
+        int y2 = laCarte.latitudeEnPixel(refLat + testDelta);
+        double distPixelY = Math.abs(y2 - y1);
+        this.stepLat = (distPixelY > 0) ? (distanceCibleEnPixels * testDelta) / distPixelY : 0.0001;
+    }
 
     public void miseAJour() {
-        // --- 1. Mouvement aléatoire des PNJ (MOUVEMENT CONTINU) ---
-        if (System.currentTimeMillis() - lastTime > 1000) {
+        long now = System.currentTimeMillis();
+
+        // 1. ANIMATION
+        if (now - lastTimeAnimation > 500) {
             animationFrame = (animationFrame + 1) % 2;
-            directionAleatoire = (int)(Math.random() * 4);
-            lastTime = System.currentTimeMillis();
+            lastTimeAnimation = now;
         }
-
-        try {
-            Connection connexion = SingletonJDBC.getInstance().getConnection();
-
-            // Mise à jour des PNJ : RETIRER LA CLAUSE 'WHERE proprietaire IS NULL'
-            // Tous les PNJ (sauvages et capturés) reçoivent un déplacement aléatoire.
-            PreparedStatement requete = connexion.prepareStatement(
-                 "UPDATE pokemons SET longitude = longitude + 0.00001 * (FLOOR(RAND()*3)-1), latitude = latitude + 0.00001 * (FLOOR(RAND()*3)-1)");
-
-            requete.executeUpdate();
-            requete.close();
         
-            // --- 2. Mouvement et Collision des μ-balls ---
+        // 2. IA
+        for (PokemonEntity p : listePokemons) {
 
-            // La requête SELECT doit inclure attaquant pour la capture
-            PreparedStatement reqSelectAtt = connexion.prepareStatement(
-                "SELECT id, attaquant, lat_actuelle, lon_actuelle, lat_cible, lon_cible FROM attaques WHERE type = 'MUBALL'"
-            );
-            ResultSet attaques = reqSelectAtt.executeQuery();
-
-            while (attaques.next()) {
-                int idAttaque = attaques.getInt("id");
-                String attaquant = attaques.getString("attaquant"); 
-                double latA = attaques.getDouble("lat_actuelle"); // Position ACTUELLE de la balle
-                double lonA = attaques.getDouble("lon_actuelle");
-                double latC = attaques.getDouble("lat_cible");
-                double lonC = attaques.getDouble("lon_cible");
-
-                // --- 1. GESTION DES CAPTURES (En vol) ---
-                // On vérifie si la balle touche quelqu'un ICI et MAINTENANT
-                boolean impact = false;
-
-                // A. Capture JOUEUR
-                PreparedStatement reqCaptJoueur = connexion.prepareStatement(
-                    "UPDATE joueurs SET statut = 'CAPTURE' " +
-                    "WHERE role != 'Dresseur' AND statut = 'LIBRE' " +
-                    "AND ABS(latitude - ?) < ? AND ABS(longitude - ?) < ?"
-                );
-                reqCaptJoueur.setDouble(1, latA); // Check autour de la balle
-                reqCaptJoueur.setDouble(2, RAYON_CAPTURE);
-                reqCaptJoueur.setDouble(3, lonA);
-                reqCaptJoueur.setDouble(4, RAYON_CAPTURE);
-                if (reqCaptJoueur.executeUpdate() > 0) {
-                    System.out.println("Joueur touche en vol !");
-                    impact = true;
+            // A. SAUT (Prioritaire)
+            if (p.enSaut) {
+                long tempsEcoule = now - p.debutSaut;
+                if (tempsEcoule >= DUREE_SAUT) {
+                    p.enSaut = false;
+                    p.lat = p.latDepartSaut - DISTANCE_SAUT; 
+                    p.targetLat = p.lat; 
+                    p.targetLon = p.lon;
+                } else {
+                    double progression = (double) tempsEcoule / DUREE_SAUT;
+                    p.lat = p.latDepartSaut - (DISTANCE_SAUT * progression);
                 }
-                reqCaptJoueur.close();
-
-                // B. Capture PNJ
-                if (!impact) { // Si on n'a pas déjà touché un joueur
-                    PreparedStatement reqCaptPNJ = connexion.prepareStatement(
-                        "UPDATE pokemons SET proprietaire = ? " +
-                        "WHERE proprietaire IS NULL " + 
-                        "AND ABS(latitude - ?) < ? AND ABS(longitude - ?) < ?"
-                    );
-                    reqCaptPNJ.setString(1, attaquant);
-                    reqCaptPNJ.setDouble(2, latA);
-                    reqCaptPNJ.setDouble(3, RAYON_CAPTURE);
-                    reqCaptPNJ.setDouble(4, lonA);
-                    reqCaptPNJ.setDouble(5, RAYON_CAPTURE);
-                    if (reqCaptPNJ.executeUpdate() > 0) {
-                        System.out.println("PNJ capture en vol !");
-                        impact = true;
-                    }
-                    reqCaptPNJ.close();
-                }
-
-                // SI IMPACT : On supprime la balle et on passe à la suivante
-                if (impact) {
-                    PreparedStatement del = connexion.prepareStatement("DELETE FROM attaques WHERE id = ?");
-                    del.setInt(1, idAttaque);
-                    del.executeUpdate();
-                    del.close();
-                    continue;
-                }
-
-                // --- 2. CALCUL DU DÉPLACEMENT ---
-                double distLat = latC - latA;
-                double distLon = lonC - lonA;
-                double distanceTotale = Math.sqrt(distLat * distLat + distLon * distLon);
-
-                // Sécurité : si la balle sort de la map (très loin), on la supprime
-                if (distanceTotale < VITESSE_MUBALL) {
-                    PreparedStatement del = connexion.prepareStatement("DELETE FROM attaques WHERE id = ?");
-                    del.setInt(1, idAttaque);
-                    del.executeUpdate();
-                    del.close();
-                    continue;
-                }
-
-                double pasLat = (distLat / distanceTotale) * VITESSE_MUBALL;
-                double pasLon = (distLon / distanceTotale) * VITESSE_MUBALL;
-                double nouvelleLat = latA + pasLat;
-                double nouvelleLon = lonA + pasLon;
-
-                // --- 3. COLLISION DÉCOR (Arbres) ---
-                int idTuile = laCarte.getTuileID(nouvelleLat, nouvelleLon);
-
-                // IDs murs: 28, 29, 30. Hors map: -1
-                if (idTuile == -1 || idTuile == 28 || idTuile == 29 || idTuile == 30) {
-                    // Boum dans un arbre
-                    PreparedStatement del = connexion.prepareStatement("DELETE FROM attaques WHERE id = ?");
-                    del.setInt(1, idAttaque);
-                    del.executeUpdate();
-                    del.close();
-                    continue;
-                }
-
-                // --- 4. MISE À JOUR POSITION ---
-                PreparedStatement up = connexion.prepareStatement(
-                    "UPDATE attaques SET lat_actuelle = ?, lon_actuelle = ? WHERE id = ?"
-                );
-                up.setDouble(1, nouvelleLat);
-                up.setDouble(2, nouvelleLon);
-                up.setInt(3, idAttaque);
-                up.executeUpdate();
-                up.close();
+                continue; 
             }
-            reqSelectAtt.close();
-        } catch (SQLException ex) { ex.printStackTrace(); }
-    }
-    
-    
-    public void rendu(Graphics2D contexte) {
-        try {
-            Connection connexion = SingletonJDBC.getInstance().getConnection();
-            // On sélectionne la colonne 'proprietaire' pour vérifier l'état de capture
-            PreparedStatement requete = connexion.prepareStatement("SELECT espece, latitude, longitude, visible, proprietaire FROM pokemons;");
-            ResultSet resultat = requete.executeQuery();
 
-            while (resultat.next()) {
-                String espece = resultat.getString("espece");
-                double latitude = resultat.getDouble("latitude");
-                double longitude = resultat.getDouble("longitude");
-                String proprietaire = resultat.getString("proprietaire");
+            // B. CHOIX ACTION
+            if (now - lastTimeMoveChoice > 2000) {
+                double offsetPieds = 0.00005;
+                int tuileSousPieds = laCarte.getTuileID(p.lat - offsetPieds, p.lon);
+                boolean surRebord = (tuileSousPieds == 31 || tuileSousPieds == 32 || tuileSousPieds == 3);
+
+                int dir = (int)(Math.random() * 4);
+                p.direction = dir;
                 
-                boolean estCapture = (proprietaire != null);
-
-                int x = laCarte.longitudeEnPixel(longitude);
-                int y = laCarte.latitudeEnPixel(latitude);
-
-                // --- CHOIX DE LA PLANCHE À DESSINER ---
-                BufferedImage[][] plancheActive = null;
-
-                if (estCapture) {
-                    // Tente de récupérer le sprite de capture
-                    plancheActive = spritesCapture.get(espece); 
-                    // Si l'image de capture n'existe pas, utilise le sprite normal
-                    if (plancheActive == null) plancheActive = sprites.get(espece); 
-                } else {
-                    plancheActive = sprites.get(espece);
+                // C. DÉCLENCHEMENT SAUT (Uniquement vers le BAS)
+                if (dir == 0 && surRebord) {
+                    p.enSaut = true;
+                    p.debutSaut = now;
+                    p.latDepartSaut = p.lat;
+                    continue; 
                 }
-                // --- FIN CHOIX DE LA PLANCHE ---
 
+                // D. DÉPLACEMENT NORMAL
+                double testLat = p.lat;
+                double testLon = p.lon;
+                double facteurDistance = 2.0; 
+                int directionCarte = 0; 
 
-                if (plancheActive != null) {
-                    int col = 0; 
-                    int lig = 0;
-                    // Animation aléatoire pour les PNJ (réutilise animationFrame et directionAleatoire)
-                    switch(directionAleatoire) { 
-                        case 0: col = 0; lig = 0 + animationFrame; break; 
-                        case 1: col = 0; lig = 2 + animationFrame; break; 
-                        case 2: col = 1; lig = 0 + animationFrame; break; 
-                        case 3: col = 1; lig = 2 + animationFrame; break; 
-                    }
-                    contexte.drawImage(plancheActive[col][lig], x - 16, y - 16, 32, 32, null);
+                switch(dir) {
+                    case 0: // Bas
+                         testLat = p.lat - (stepLat * facteurDistance); 
+                         directionCarte = 1; // 1 = Bas dans Carte.java
+                         break;
+                    case 1: // Haut
+                         testLat = p.lat + (stepLat * facteurDistance); 
+                         directionCarte = 0; // 0 = Haut
+                         break;
+                    case 2: // Droite
+                         testLon = p.lon + (stepLon * facteurDistance); 
+                         directionCarte = 3; // 3 = Droite
+                         break;
+                    case 3: // Gauche
+                         testLon = p.lon - (stepLon * facteurDistance); 
+                         directionCarte = 2; // 2 = Gauche
+                         break;
+                }
+
+                if (laCarte.estTraversable(testLat, testLon, directionCarte)) {
+                    p.targetLat = testLat;
+                    p.targetLon = testLon;
                 } else {
-                    // Fallback
-                    contexte.fillOval(x - 5, y - 5, 10, 10);
+                    p.targetLat = p.lat;
+                    p.targetLon = p.lon;
                 }
             }
-            requete.close();
-        } catch (SQLException ex) { ex.printStackTrace(); }
+
+            // E. LISSAGE
+            double vitesse = 0.05; 
+            p.lat += (p.targetLat - p.lat) * vitesse;
+            p.lon += (p.targetLon - p.lon) * vitesse;
+        }
+        
+        if (now - lastTimeMoveChoice > 2000) {
+            lastTimeMoveChoice = now;
+        }
+    }
+
+    public void rendu(Graphics2D contexte) {
+        for (PokemonEntity p : listePokemons) {
+            if (!p.visible) continue;
+
+            int x = laCarte.longitudeEnPixel(p.lon);
+            int y = laCarte.latitudeEnPixel(p.lat);
+
+            // OMBRE & HAUTEUR SAUT
+            int hauteurSaut = 0;
+            if (p.enSaut) {
+                long tempsEcoule = System.currentTimeMillis() - p.debutSaut;
+                double progression = (double) tempsEcoule / DUREE_SAUT;
+                hauteurSaut = (int) (20 * Math.sin(progression * Math.PI));
+                
+                contexte.setColor(new Color(0, 0, 0, 80));
+                contexte.fillOval(x + 5, y + 28, 22, 10);
+            }
+
+            BufferedImage[][] planche = sprites.get(p.espece);
+
+            if (planche != null) {
+                int col = 0;
+                int lig = 0;
+                switch(p.direction) {
+                    case 0: col = 0; lig = 2 + animationFrame; break; // Bas
+                    case 1: col = 0; lig = 0 + animationFrame; break; // Haut
+                    case 2: col = 1; lig = 2 + animationFrame; break; // Droite
+                    case 3: col = 1; lig = 0 + animationFrame; break; // Gauche
+                }
+                contexte.drawImage(planche[col][lig], x - 16, (y - 16) - hauteurSaut, 32, 32, null);
+            } else {
+                contexte.setColor(Color.MAGENTA);
+                contexte.fillOval(x - 5, y - 5, 10, 10);
+            }
+        }
     }
 }
