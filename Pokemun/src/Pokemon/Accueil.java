@@ -4,13 +4,13 @@
  */
 package Pokemon;
 
+import java.awt.Image;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import javax.swing.ImageIcon;
-import outils.SingletonJDBC;
 import javax.swing.JOptionPane;
-import javax.swing.JPanel;
+import outils.SingletonJDBC;
 
 /**
  *
@@ -19,45 +19,65 @@ import javax.swing.JPanel;
 public class Accueil extends javax.swing.JFrame {
     
     private static final java.util.logging.Logger logger = java.util.logging.Logger.getLogger(Accueil.class.getName());
+    
+    // --- VARIABLES LOBBY ---
+    private int connectedPlayers = 0;
+    private String myPseudo = null; 
+    private java.util.Map<String, String> playerRoles = new java.util.HashMap<>(); 
+    private boolean rolesAssigned = false;
+    private String myRole = null; 
+    private static final String[] ROLES = {"Dresseur", "Drascore", "Libegon"};
+    private java.util.List<String> connectedPlayerNames = new java.util.ArrayList<>();
+    private static final int MAX_PLAYERS = 3;
 
     /**
      * Creates new form Accueil
      */
     public Accueil() {
         
-        // Créer un JLabel pour l'image de fond
-        initComponents();  // Ajouter tous les composants
-        jButton1.addActionListener(evt -> jButton1ActionPerformed(evt));
-
-        pack(); // Calculer la taille de la fenêtre
+        // Nettoyage au démarrage (Optionnel, dépend de ta stratégie)
+        // nettoyerConnexionsBDD(); 
+        
+        initComponents();  
+        
+        // --- IMAGE DE FOND ---
+        pack(); 
         javax.swing.JLabel background = new javax.swing.JLabel();
-        java.net.URL imgURL = getClass().getResource("/resources/Foret_de_Rambouillet.png");
-        ImageIcon icon = new ImageIcon(imgURL);
-        int imgWidth = icon.getIconWidth();
-        int imgHeight = icon.getIconHeight();
-        this.setSize(imgWidth, imgHeight);
-        setLocationRelativeTo(null);
-        if (imgURL != null) {
-            background.setIcon(new javax.swing.ImageIcon(imgURL));
-        } else {
-            System.err.println("Image non trouvée !");
-        }
-        // Position initiale et taille
+        try {
+            java.net.URL imgURL = getClass().getResource("/resources/Foret_de_Rambouillet.png");
+            if (imgURL != null) {
+                ImageIcon icon = new ImageIcon(imgURL);
+                this.setSize(icon.getIconWidth(), icon.getIconHeight());
+                background.setIcon(icon);
+            }
+        } catch (Exception e) { System.err.println("Image fond non trouvée"); }
+        
+        this.setLocationRelativeTo(null);
         background.setBounds(0, 0, this.getWidth(), this.getHeight());
-        // Ajouter le JLabel au LayeredPane pour qu'il reste derrière tous les composants
         this.getLayeredPane().add(background, new Integer(Integer.MIN_VALUE));
-        // Rendre le content pane transparent pour voir le fond
         ((javax.swing.JPanel)this.getContentPane()).setOpaque(false);
-        // Ajuster la taille de l'image quand la fenêtre change de taille
+        
+        // Redimensionnement dynamique du fond
         this.addComponentListener(new java.awt.event.ComponentAdapter() {
             @Override
             public void componentResized(java.awt.event.ComponentEvent e) {
                 background.setSize(getWidth(), getHeight());
             }
         });
+
+        // --- SETUP LOGIQUE ---
+        jButton1.addActionListener(evt -> jButton1ActionPerformed(evt));
+        if (jProgressBar1 != null) jProgressBar1.setMaximum(MAX_PLAYERS);
+        
+        demarrerActualisationAutomatique();
+        
+        this.addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowClosing(java.awt.event.WindowEvent e) {
+                if (myPseudo != null) retirerConnexionBDD(myPseudo);
+            }
+        });
     }
-
-
 
     /**
      * This method is called from within the constructor to initialize the form.
@@ -98,21 +118,9 @@ public class Accueil extends javax.swing.JFrame {
         jLabel4.setForeground(new java.awt.Color(255, 255, 255));
         jLabel4.setText("Pseudo");
 
-        jTextField1.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jTextField1ActionPerformed(evt);
-            }
-        });
-
         jLabel5.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
         jLabel5.setForeground(new java.awt.Color(255, 255, 255));
         jLabel5.setText("Mot de passe");
-
-        jTextField2.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jTextField2ActionPerformed(evt);
-            }
-        });
 
         jLabel7.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
         jLabel7.setForeground(new java.awt.Color(255, 255, 255));
@@ -189,42 +197,41 @@ public class Accueil extends javax.swing.JFrame {
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
-    private void jTextField1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jTextField1ActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_jTextField1ActionPerformed
+    // --- LOGIQUE METIER DU LOBBY ---
 
-    private void jTextField2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jTextField2ActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_jTextField2ActionPerformed
-
-    // Méthode pour se connecter en renseignant pseudo et mdp
     private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {
-
         String pseudo = jTextField1.getText().trim();
         String mdp = jTextField2.getText().trim();
 
-        // Vérifications des champs vides
         if (pseudo.isEmpty() || mdp.isEmpty()) {
-            if (pseudo.isEmpty()) {
-                JOptionPane.showMessageDialog(null, "Aucun pseudo saisi.");
-            }
-            if (mdp.isEmpty()) {
-                JOptionPane.showMessageDialog(null, "Aucun mot de passe saisi.");
-            }
-            return; // on stoppe ici
+            JOptionPane.showMessageDialog(null, "Champs vides !");
+            return;
         }
 
-        // Pseudo existe ?
         if (pseudoExiste(pseudo)) {
-            // Mot de passe correct ?
             if (mdpCorrect(pseudo, mdp)) {
-                int compteur = Integer.parseInt(jLabel6.getText());
-                compteur++;
-                jLabel6.setText(String.valueOf(compteur));
-                JOptionPane.showMessageDialog(null, "Identifiants corrects.");
-                this.setVisible(false);
-                FenetreDeJeu fenetreJeu = new FenetreDeJeu(pseudo);
-                fenetreJeu.setVisible(true);
+                
+                // Vérifier si déjà connecté
+                if (estDejaConnecteBDD(pseudo)) {
+                    JOptionPane.showMessageDialog(null, "Déjà connecté ailleurs !");
+                    return;
+                }
+
+                // Connexion réussie
+                myPseudo = pseudo;
+                ajouterConnexionBDD(pseudo);
+                
+                connectedPlayers = compterConnexionsBDD();
+                actualiserListeJoueursDepuisBDD();
+                updatePlayerCount(connectedPlayers);
+
+                // UI Update
+                jTextField1.setEnabled(false);
+                jTextField2.setEnabled(false);
+                jButton1.setEnabled(false);
+                
+                JOptionPane.showMessageDialog(null, "Bienvenue " + pseudo + " ! En attente des autres joueurs...");
+
             } else {
                 JOptionPane.showMessageDialog(null, "Mot de passe incorrect.");
             }
@@ -232,59 +239,191 @@ public class Accueil extends javax.swing.JFrame {
             JOptionPane.showMessageDialog(null, "Pseudo introuvable.");
         }
     }
-                                        
 
-    // Méthode permettant de savoir si le pseudo existe
+    private void demarrerActualisationAutomatique() {
+        javax.swing.Timer timer = new javax.swing.Timer(3000, e -> {
+            if (connectedPlayers < MAX_PLAYERS || !rolesAssigned) {
+                int nouveauCompte = compterConnexionsBDD();
+                if (nouveauCompte != connectedPlayers) {
+                    connectedPlayers = nouveauCompte;
+                    updatePlayerCount(connectedPlayers);
+                    actualiserListeJoueursDepuisBDD();
+                    checkAndAssignRoles();
+                }
+            }
+        });
+        timer.start();
+    }
+
+    private void checkAndAssignRoles() {
+        if (connectedPlayers == MAX_PLAYERS && !rolesAssigned) {
+            if (!areRolesAlreadyAssignedInDB()) {
+                assignRoles(); // Je suis le premier à détecter, j'assigne
+            } else {
+                retrieveRolesFromDB(); // Les rôles sont là, je les récupère
+            }
+            
+            // Une fois les rôles connus, on prépare le lancement
+            if (myRole != null) {
+                startGame();
+            } else {
+                // Petite attente pour la propagation BDD
+                javax.swing.Timer t = new javax.swing.Timer(1000, e -> {
+                    retrieveMyRoleFromDB();
+                    if(myRole != null) startGame();
+                });
+                t.setRepeats(false); t.start();
+            }
+        }
+    }
+
+    private void assignRoles() {
+        if (rolesAssigned) return;
+        java.util.List<String> rolesToAssign = new java.util.ArrayList<>(java.util.Arrays.asList(ROLES));
+        java.util.Collections.shuffle(rolesToAssign);
+
+        for (int i = 0; i < connectedPlayerNames.size(); i++) {
+            String p = connectedPlayerNames.get(i);
+            String r = rolesToAssign.get(i);
+            
+            // Mise à jour BDD
+            mettreAJourRoleBDD(p, r);
+            
+            if (p.equals(myPseudo)) myRole = r;
+        }
+        rolesAssigned = true;
+    }
+
+    // --- LE POINT CRUCIAL : LANCEMENT DU JEU ---
+    private void startGame() {
+        // C'est ICI que ça change : on passe le pseudo ET le rôle
+        JOptionPane.showMessageDialog(this, "La partie commence ! Vous êtes : " + myRole);
+        
+        this.setVisible(false);
+        // On appelle le constructeur correct de FenetreDeJeu
+        FenetreDeJeu fenetreJeu = new FenetreDeJeu(myPseudo, myRole);
+        fenetreJeu.setVisible(true);
+    }
+
+    // --- REQUETES BDD ---
+
     private boolean pseudoExiste(String pseudo) {
-        String sql = "SELECT COUNT(*) FROM joueurs WHERE pseudo = ?";
         try {
-            Connection connexion = outils.SingletonJDBC.getInstance().getConnection();
-            PreparedStatement requete = connexion.prepareStatement(sql);
-            requete.setString(1, pseudo);
-            try (ResultSet resultat = requete.executeQuery()) {
-                if (resultat.next()) {
-                    int nb = resultat.getInt(1);
-                    return nb > 0;
-                }
-            }
-        } 
-        catch (Exception e) {
-            e.printStackTrace();
-        }
-        return false;
+            Connection c = SingletonJDBC.getInstance().getConnection();
+            PreparedStatement p = c.prepareStatement("SELECT COUNT(*) FROM joueurs WHERE pseudo = ?");
+            p.setString(1, pseudo); ResultSet r = p.executeQuery();
+            if(r.next()) return r.getInt(1) > 0;
+        } catch (Exception e) {} return false;
     }
-    
-    
-    // Méthode permettant de savoir si le mdp est correct
+
     private boolean mdpCorrect(String pseudo, String mdp) {
-        String sql = "SELECT motDePasse FROM joueurs WHERE pseudo = ?";
         try {
-            Connection connexion = outils.SingletonJDBC.getInstance().getConnection();
-            PreparedStatement requete = connexion.prepareStatement(sql);
-            requete.setString(1, pseudo);
-            try (ResultSet resultat = requete.executeQuery()) {
-                if (resultat.next()) {
-                    String mdpEnBase = resultat.getString("motDePasse");
-                    return mdp.equals(mdpEnBase);
-                } else {
-                    return false;
-                }
-            }
-        }
-        catch (Exception e) {
-            e.printStackTrace();
-        }
-        return false; 
+            Connection c = SingletonJDBC.getInstance().getConnection();
+            PreparedStatement p = c.prepareStatement("SELECT motDePasse FROM joueurs WHERE pseudo = ?");
+            p.setString(1, pseudo); ResultSet r = p.executeQuery();
+            if(r.next()) return mdp.equals(r.getString("motDePasse"));
+        } catch (Exception e) {} return false;
     }
-    /**
-     * @param args the command line arguments
-     */
+
+    private void ajouterConnexionBDD(String pseudo) {
+        try {
+            Connection c = SingletonJDBC.getInstance().getConnection();
+            PreparedStatement p = c.prepareStatement("INSERT INTO connexions_en_cours (pseudo) VALUES (?) ON DUPLICATE KEY UPDATE date_connexion = NOW(), statut = 'EN_LIGNE'");
+            p.setString(1, pseudo); p.executeUpdate(); p.close();
+        } catch (Exception e) {}
+    }
+
+    private void retirerConnexionBDD(String pseudo) {
+        try {
+            Connection c = SingletonJDBC.getInstance().getConnection();
+            PreparedStatement p = c.prepareStatement("DELETE FROM connexions_en_cours WHERE pseudo = ?");
+            p.setString(1, pseudo); p.executeUpdate(); p.close();
+        } catch (Exception e) {}
+    }
+
+    private int compterConnexionsBDD() {
+        try {
+            Connection c = SingletonJDBC.getInstance().getConnection();
+            PreparedStatement p = c.prepareStatement("SELECT COUNT(*) as nb FROM connexions_en_cours WHERE statut = 'EN_LIGNE'");
+            ResultSet r = p.executeQuery();
+            if(r.next()) return r.getInt("nb");
+        } catch (Exception e) {} return 0;
+    }
+
+    private boolean estDejaConnecteBDD(String pseudo) {
+        try {
+            Connection c = SingletonJDBC.getInstance().getConnection();
+            PreparedStatement p = c.prepareStatement("SELECT COUNT(*) FROM connexions_en_cours WHERE pseudo = ? AND statut = 'EN_LIGNE'");
+            p.setString(1, pseudo); ResultSet r = p.executeQuery();
+            if(r.next()) return r.getInt(1) > 0;
+        } catch (Exception e) {} return false;
+    }
+
+    private void actualiserListeJoueursDepuisBDD() {
+        try {
+            Connection c = SingletonJDBC.getInstance().getConnection();
+            PreparedStatement p = c.prepareStatement("SELECT pseudo FROM connexions_en_cours WHERE statut = 'EN_LIGNE'");
+            ResultSet r = p.executeQuery();
+            connectedPlayerNames.clear();
+            while(r.next()) connectedPlayerNames.add(r.getString("pseudo"));
+            p.close();
+        } catch (Exception e) {}
+    }
+
+    private boolean areRolesAlreadyAssignedInDB() {
+        try {
+            Connection c = SingletonJDBC.getInstance().getConnection();
+            PreparedStatement p = c.prepareStatement("SELECT COUNT(*) FROM joueurs WHERE role IS NOT NULL AND role != 'none' AND role != ''");
+            ResultSet r = p.executeQuery();
+            if(r.next()) return r.getInt(1) >= MAX_PLAYERS;
+        } catch (Exception e) {} return false;
+    }
+
+    private void retrieveRolesFromDB() {
+        try {
+            Connection c = SingletonJDBC.getInstance().getConnection();
+            PreparedStatement p = c.prepareStatement("SELECT pseudo, role FROM joueurs WHERE role IS NOT NULL");
+            ResultSet r = p.executeQuery();
+            while(r.next()) if(r.getString("pseudo").equals(myPseudo)) myRole = r.getString("role");
+            rolesAssigned = true;
+        } catch (Exception e) {}
+    }
+    
+    private void retrieveMyRoleFromDB() {
+        try {
+            Connection c = SingletonJDBC.getInstance().getConnection();
+            PreparedStatement p = c.prepareStatement("SELECT role FROM joueurs WHERE pseudo = ?");
+            p.setString(1, myPseudo); ResultSet r = p.executeQuery();
+            if(r.next()) myRole = r.getString("role");
+        } catch (Exception e) {}
+    }
+
+    private void mettreAJourRoleBDD(String pseudo, String role) {
+        try {
+            Connection c = SingletonJDBC.getInstance().getConnection();
+            PreparedStatement p = c.prepareStatement("UPDATE joueurs SET role = ? WHERE pseudo = ?");
+            p.setString(1, role); p.setString(2, pseudo); p.executeUpdate(); p.close();
+        } catch (Exception e) {}
+    }
+
+    public void updatePlayerCount(int count) {
+        this.connectedPlayers = count;
+        jLabel6.setText(String.valueOf(count));
+        if (jProgressBar1 != null) {
+            jProgressBar1.setValue(count);
+            // Couleurs
+            float p = (float) count / MAX_PLAYERS;
+            if (p < 0.5) jProgressBar1.setForeground(java.awt.Color.RED);
+            else if (p < 1.0) jProgressBar1.setForeground(java.awt.Color.ORANGE);
+            else jProgressBar1.setForeground(java.awt.Color.GREEN);
+        }
+        if (count >= MAX_PLAYERS) {
+            jLabel2.setText("Lobby complet ! Lancement...");
+            jLabel2.setForeground(java.awt.Color.GREEN);
+        }
+    }
+
     public static void main(String args[]) {
-        /* Set the Nimbus look and feel */
-        //<editor-fold defaultstate="collapsed" desc=" Look and feel setting code (optional) ">
-        /* If Nimbus (introduced in Java SE 6) is not available, stay with the default look and feel.
-         * For details see http://download.oracle.com/javase/tutorial/uiswing/lookandfeel/plaf.html 
-         */
         try {
             for (javax.swing.UIManager.LookAndFeelInfo info : javax.swing.UIManager.getInstalledLookAndFeels()) {
                 if ("Nimbus".equals(info.getName())) {
@@ -292,15 +431,9 @@ public class Accueil extends javax.swing.JFrame {
                     break;
                 }
             }
-        } catch (ReflectiveOperationException | javax.swing.UnsupportedLookAndFeelException ex) {
-            logger.log(java.util.logging.Level.SEVERE, null, ex);
-        }
-        //</editor-fold>
-
-        /* Create and display the form */
+        } catch (Exception ex) { logger.log(java.util.logging.Level.SEVERE, null, ex); }
         java.awt.EventQueue.invokeLater(() -> new Accueil().setVisible(true));
     }
-    
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton jButton1;
@@ -315,4 +448,3 @@ public class Accueil extends javax.swing.JFrame {
     private javax.swing.JTextField jTextField2;
     // End of variables declaration//GEN-END:variables
 }
-
