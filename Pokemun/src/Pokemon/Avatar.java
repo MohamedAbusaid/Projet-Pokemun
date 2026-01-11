@@ -282,4 +282,7 @@ public class Avatar {
             rI.executeUpdate(); rI.close();
         } catch(Exception e) { e.printStackTrace(); }
     }
+    // --- GETTERS POUR DRESSEURS.JAVA ---
+    public double getLatitude() { return this.maLatitude; }
+    public double getLongitude() { return this.maLongitude; }
 }
